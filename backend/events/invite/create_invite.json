@@ -1,0 +1,27 @@
+{
+  "version": "2.0",
+  "routeKey": "POST /trips/{tripId}/invites",
+  "rawPath": "/trips/a1b2c3d4-0000-0000-0000-000000000001/invites",
+  "requestContext": {
+    "requestId": "req-create-invite-001",
+    "http": {
+      "method": "POST",
+      "path": "/trips/a1b2c3d4-0000-0000-0000-000000000001/invites"
+    },
+    "authorizer": {
+      "jwt": {
+        "claims": {
+          "sub": "cognito-sub-alice-001",
+          "email": "alice@example.com",
+          "name": "Alice"
+        }
+      }
+    }
+  },
+  "pathParameters": {
+    "tripId": "a1b2c3d4-0000-0000-0000-000000000001"
+  },
+  "queryStringParameters": null,
+  "body": "{\"expires_in_days\": 7, \"max_uses\": 20}",
+  "isBase64Encoded": false
+}

@@ -1,0 +1,18 @@
+{
+  "version": "2.0",
+  "routeKey": "GET /invites/{inviteToken}",
+  "rawPath": "/invites/fake-raw-invite-token-preview-example",
+  "requestContext": {
+    "requestId": "req-preview-invite-001",
+    "http": {
+      "method": "GET",
+      "path": "/invites/fake-raw-invite-token-preview-example"
+    }
+  },
+  "pathParameters": {
+    "inviteToken": "fake-raw-invite-token-preview-example"
+  },
+  "queryStringParameters": null,
+  "body": null,
+  "isBase64Encoded": false
+}

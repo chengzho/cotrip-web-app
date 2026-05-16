@@ -53,3 +53,18 @@ class ConflictError(AppError):
 class InternalServerError(AppError):
     def __init__(self, message: str = "An unexpected error occurred") -> None:
         super().__init__(ErrorCode.INTERNAL_SERVER_ERROR, message, 500)
+
+
+class InviteExpiredError(AppError):
+    def __init__(self, message: str = "Invite has expired") -> None:
+        super().__init__(ErrorCode.INVITE_EXPIRED, message, 400)
+
+
+class InviteRevokedError(AppError):
+    def __init__(self, message: str = "Invite has been revoked") -> None:
+        super().__init__(ErrorCode.INVITE_REVOKED, message, 400)
+
+
+class InviteUsageLimitReachedError(AppError):
+    def __init__(self, message: str = "Invite usage limit has been reached") -> None:
+        super().__init__(ErrorCode.INVITE_USAGE_LIMIT_REACHED, message, 400)

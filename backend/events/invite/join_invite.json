@@ -1,0 +1,27 @@
+{
+  "version": "2.0",
+  "routeKey": "POST /invites/{inviteToken}/join",
+  "rawPath": "/invites/fake-raw-invite-token-join-example/join",
+  "requestContext": {
+    "requestId": "req-join-invite-001",
+    "http": {
+      "method": "POST",
+      "path": "/invites/fake-raw-invite-token-join-example/join"
+    },
+    "authorizer": {
+      "jwt": {
+        "claims": {
+          "sub": "cognito-sub-bob-002",
+          "email": "bob@example.com",
+          "name": "Bob"
+        }
+      }
+    }
+  },
+  "pathParameters": {
+    "inviteToken": "fake-raw-invite-token-join-example"
+  },
+  "queryStringParameters": null,
+  "body": null,
+  "isBase64Encoded": false
+}

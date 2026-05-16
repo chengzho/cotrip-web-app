@@ -1,0 +1,24 @@
+{
+  "version": "2.0",
+  "routeKey": "POST /trips",
+  "rawPath": "/trips",
+  "requestContext": {
+    "requestId": "local-create-trip-01",
+    "http": {
+      "method": "POST",
+      "path": "/trips"
+    },
+    "authorizer": {
+      "jwt": {
+        "claims": {
+          "sub": "00000000-0000-0000-0000-000000000001",
+          "email": "alice@example.com",
+          "name": "Alice Example"
+        }
+      }
+    }
+  },
+  "pathParameters": null,
+  "queryStringParameters": null,
+  "body": "{\"title\": \"Summer in Japan\", \"destination\": \"Tokyo, Japan\", \"start_date\": \"2025-08-01\", \"end_date\": \"2025-08-14\", \"description\": \"A two-week trip exploring Tokyo and beyond.\"}"
+}
