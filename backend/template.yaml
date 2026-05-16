@@ -4,7 +4,7 @@ Description: CoTrip collaborative travel planning app - backend
 
 Globals:
   Function:
-    Runtime: python3.13
+    Runtime: python3.12
     Timeout: 30
     MemorySize: 256
     Environment:
@@ -44,45 +44,237 @@ Parameters:
     Type: String
     NoEcho: true
     Default: replace-me
+  CognitoUserPoolId:
+    Type: String
+    Default: ""
+    Description: Cognito User Pool ID — provided at deployment time
+  CognitoAppClientId:
+    Type: String
+    Default: ""
+    Description: Cognito App Client ID — provided at deployment time
+  AllowedCorsOrigins:
+    Type: CommaDelimitedList
+    Default: "http://localhost:5173"
+    Description: Comma-separated list of allowed CORS origins (local dev + deployed frontend)
 
 Resources:
 
+  CoTripHttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: !Ref AppEnv
+      CorsConfiguration:
+        AllowMethods:
+          - GET
+          - POST
+          - PATCH
+          - DELETE
+          - OPTIONS
+        AllowHeaders:
+          - Authorization
+          - Content-Type
+        AllowOrigins: !Ref AllowedCorsOrigins
+      Auth:
+        Authorizers:
+          CognitoJwtAuthorizer:
+            IdentitySource: $request.header.Authorization
+            JwtConfiguration:
+              issuer: !Sub "https://cognito-idp.${AWS::Region}.amazonaws.com/${CognitoUserPoolId}"
+              audience:
+                - !Ref CognitoAppClientId
+        DefaultAuthorizer: CognitoJwtAuthorizer
+
+  # ---------------------------------------------------------------------------
+  # Trip and member management
+  # Routes: POST /trips, GET /trips, GET /trips/{tripId},
+  #         PATCH /trips/{tripId}, GET /trips/{tripId}/members
+  # ---------------------------------------------------------------------------
   TripGroupFunction:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub cotrip-${AppEnv}-trip-group-function
-      CodeUri: src/trip_group/
-      Handler: app.lambda_handler
+      CodeUri: src/
+      Handler: trip_group.app.lambda_handler
+      Events:
+        CreateTrip:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref CoTripHttpApi
+            Method: POST
+            Path: /trips
+        ListTrips:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref CoTripHttpApi
+            Method: GET
+            Path: /trips
+        GetTrip:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref CoTripHttpApi
+            Method: GET
+            Path: /trips/{tripId}
+        UpdateTrip:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref CoTripHttpApi
+            Method: PATCH
+            Path: /trips/{tripId}
+        ListTripMembers:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref CoTripHttpApi
+            Method: GET
+            Path: /trips/{tripId}/members
 
+  # ---------------------------------------------------------------------------
+  # Invite management
+  # Routes: POST /trips/{tripId}/invites
+  #         GET  /invites/{inviteToken}           — PUBLIC (no auth required)
+  #         POST /invites/{inviteToken}/join
+  # ---------------------------------------------------------------------------
   InviteFunction:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub cotrip-${AppEnv}-invite-function
-      CodeUri: src/invite/
-      Handler: app.lambda_handler
+      CodeUri: src/
+      Handler: invite.app.lambda_handler
+      Events:
+        CreateInvite:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref CoTripHttpApi
+            Method: POST
+            Path: /trips/{tripId}/invites
+        PreviewInvite:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref CoTripHttpApi
+            Method: GET
+            Path: /invites/{inviteToken}
+            Auth:
+              Authorizer: NONE
+        JoinTrip:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref CoTripHttpApi
+            Method: POST
+            Path: /invites/{inviteToken}/join
 
+  # ---------------------------------------------------------------------------
+  # Candidate place management
+  # Routes: GET  /trips/{tripId}/candidates
+  #         POST /trips/{tripId}/candidates
+  #         PATCH  /trips/{tripId}/candidates/{candidateId}
+  #         DELETE /trips/{tripId}/candidates/{candidateId}
+  # ---------------------------------------------------------------------------
   CandidateFunction:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub cotrip-${AppEnv}-candidate-function
-      CodeUri: src/candidate/
-      Handler: app.lambda_handler
+      CodeUri: src/
+      Handler: candidate.app.lambda_handler
+      Events:
+        ListCandidates:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref CoTripHttpApi
+            Method: GET
+            Path: /trips/{tripId}/candidates
+        CreateCandidate:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref CoTripHttpApi
+            Method: POST
+            Path: /trips/{tripId}/candidates
+        UpdateCandidate:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref CoTripHttpApi
+            Method: PATCH
+            Path: /trips/{tripId}/candidates/{candidateId}
+        DeleteCandidate:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref CoTripHttpApi
+            Method: DELETE
+            Path: /trips/{tripId}/candidates/{candidateId}
 
+  # ---------------------------------------------------------------------------
+  # Voting and rankings
+  # Routes: POST   /candidates/{candidateId}/votes
+  #         DELETE /candidates/{candidateId}/votes
+  #         GET    /trips/{tripId}/rankings
+  # ---------------------------------------------------------------------------
   VoteFunction:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub cotrip-${AppEnv}-vote-function
-      CodeUri: src/vote/
-      Handler: app.lambda_handler
+      CodeUri: src/
+      Handler: vote.app.lambda_handler
+      Events:
+        AddVote:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref CoTripHttpApi
+            Method: POST
+            Path: /candidates/{candidateId}/votes
+        RemoveVote:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref CoTripHttpApi
+            Method: DELETE
+            Path: /candidates/{candidateId}/votes
+        GetRankings:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref CoTripHttpApi
+            Method: GET
+            Path: /trips/{tripId}/rankings
 
+  # ---------------------------------------------------------------------------
+  # Itinerary management
+  # Routes: POST   /trips/{tripId}/itinerary/generate
+  #         GET    /trips/{tripId}/itinerary
+  #         PATCH  /trips/{tripId}/itinerary/items/{itemId}
+  #         DELETE /trips/{tripId}/itinerary/items/{itemId}
+  # ---------------------------------------------------------------------------
   ItineraryFunction:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub cotrip-${AppEnv}-itinerary-function
-      CodeUri: src/itinerary/
-      Handler: app.lambda_handler
+      CodeUri: src/
+      Handler: itinerary.app.lambda_handler
+      Events:
+        GenerateItinerary:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref CoTripHttpApi
+            Method: POST
+            Path: /trips/{tripId}/itinerary/generate
+        GetItinerary:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref CoTripHttpApi
+            Method: GET
+            Path: /trips/{tripId}/itinerary
+        UpdateItineraryItem:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref CoTripHttpApi
+            Method: PATCH
+            Path: /trips/{tripId}/itinerary/items/{itemId}
+        DeleteItineraryItem:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref CoTripHttpApi
+            Method: DELETE
+            Path: /trips/{tripId}/itinerary/items/{itemId}
 
 Outputs:
+  HttpApiUrl:
+    Description: HTTP API endpoint base URL
+    Value: !Sub "https://${CoTripHttpApi}.execute-api.${AWS::Region}.amazonaws.com/${AppEnv}"
   TripGroupFunction:
     Description: TripGroupFunction ARN
     Value: !GetAtt TripGroupFunction.Arn
