@@ -65,29 +65,45 @@ Database uniqueness:
 (candidate_id, user_id)
 ```
 
-### 6.2 Duplicate Vote Behavior
+### 6.2 Vote and Unvote Idempotency Policy
 
-Recommended behavior:
+The CoTrip MVP uses idempotent behavior for both voting and unvoting.
 
-Option A:
+#### Repeated Vote Request
 
-```text
-Return 409 ALREADY_EXISTS
-```
-
-Option B:
+If the authenticated user sends:
 
 ```text
-Treat repeated POST as idempotent success
+POST /candidates/{candidateId}/votes
 ```
 
-The final implementation must choose one behavior and remain consistent.
+for a candidate they already voted for, the function shall:
 
-Recommended MVP choice:
+- keep the existing vote unchanged
+- return success
+- return the current state:
+  - `voted = true`
+  - current `vote_count`
+
+This must not return `409 ALREADY_EXISTS`.
+
+#### Repeated Unvote Request
+
+If the authenticated user sends:
 
 ```text
-Idempotent success is acceptable for better frontend UX.
+DELETE /candidates/{candidateId}/votes
 ```
+
+for a candidate they have not voted for, the function shall:
+
+- keep the database unchanged
+- return success
+- return the current state:
+  - `voted = false`
+  - current `vote_count`
+
+This must not fail merely because the vote row does not exist.
 
 ### 6.3 Rankings
 
@@ -104,8 +120,10 @@ Ranking order:
 |---|---|
 | Candidate not found | `404 NOT_FOUND` |
 | User not trip member | `403 FORBIDDEN` |
-| Duplicate vote if non-idempotent policy used | `409 ALREADY_EXISTS` |
-| Vote deletion for missing vote | Backend policy, but must be consistent |
+| Invalid candidate-to-trip relationship if detected | `404 NOT_FOUND` or `403 FORBIDDEN`, depending on final lookup strategy |
+
+Duplicate vote requests and repeated unvote requests are **not** error conditions in the MVP.  
+They must return successful idempotent responses.
 
 ---
 
@@ -129,8 +147,9 @@ Create unit tests for:
 
 - Candidate membership resolution
 - Vote insert logic
-- Duplicate vote behavior
+- Idempotent repeated vote behavior
 - Vote deletion behavior
+- Idempotent repeated unvote behavior
 - Ranking sort order
 - Category filter if implemented
 

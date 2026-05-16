@@ -74,9 +74,24 @@ common/validation.py
 
 The function must:
 
-1. Extract Cognito `sub`
-2. Resolve corresponding row from `users`
-3. Create user row if not found, according to shared user bootstrap logic
+1. Extract Cognito `sub`.
+2. Resolve the corresponding row from `users`.
+3. Create a user row if not found, according to shared user bootstrap logic.
+4. Derive `display_name` using the approved fallback chain.
+
+The `display_name` fallback order is:
+
+```text
+name
+→ preferred_username
+→ cognito:username
+→ email local part
+→ "CoTrip User"
+```
+
+This ensures lazy user creation can succeed even when optional Cognito profile claims are missing.
+
+The shared auth/user-resolution helper should centralize this logic so that future Lambda functions do not implement inconsistent fallback behavior.
 
 ### 7.2 Create Trip Must Be Transactional
 
@@ -103,6 +118,44 @@ Trip creation and update must validate:
 
 ```text
 start_date <= end_date
+```
+
+---
+
+### 7.5 Trip List Scope Filtering
+
+The `GET /trips` endpoint supports the optional `scope` query parameter.
+
+Allowed values:
+
+```text
+upcoming
+past
+all
+```
+
+Default value:
+
+```text
+upcoming
+```
+
+The exact filtering rules are:
+
+```text
+upcoming = end_date >= CURRENT_DATE
+past     = end_date < CURRENT_DATE
+all      = no date-based filtering
+```
+
+The comparison must use `end_date`, not `start_date`.
+
+A trip that has already started but has not yet ended is still considered `upcoming`.
+
+If an unsupported `scope` value is provided, return:
+
+```text
+400 VALIDATION_ERROR
 ```
 
 ---
@@ -163,6 +216,12 @@ Create unit tests for:
 - Owner authorization
 - Member authorization
 - Create-trip transaction service logic
+- Display name fallback behavior during lazy user creation
+- Trip list default scope behavior
+- Trip list `upcoming` scope filtering
+- Trip list `past` scope filtering
+- Trip list `all` scope filtering
+- Invalid `scope` value returning `400 VALIDATION_ERROR`
 
 ## 11.2 Local SAM API Tests
 

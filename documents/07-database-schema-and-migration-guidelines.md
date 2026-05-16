@@ -425,6 +425,14 @@ The itinerary is represented as rows grouped by:
 - slot
 - sort order
 
+Each itinerary item stores a **category snapshot** at generation time.
+
+This avoids losing important display information when:
+
+- the original candidate place is later deleted
+- `candidate_id` becomes null through `ON DELETE SET NULL`
+- the frontend still needs to render the correct category badge in the itinerary UI
+
 ---
 
 ### Columns
@@ -436,6 +444,7 @@ The itinerary is represented as rows grouped by:
 | `day_number` | INTEGER | Yes | Starts from `1` |
 | `slot` | VARCHAR | Yes | `morning`, `lunch`, `afternoon`, `dinner`, or `evening` |
 | `candidate_id` | UUID | No | FK to `trip_candidates.id`, nullable |
+| `category` | VARCHAR | Yes | Snapshot category: `attraction` or `restaurant` |
 | `title` | VARCHAR | Yes | Display title |
 | `note` | TEXT | No | Optional note |
 | `sort_order` | INTEGER | Yes | Sort position within the day |
@@ -460,14 +469,18 @@ The itinerary is represented as rows grouped by:
   - `afternoon`
   - `dinner`
   - `evening`
+- Category value must be restricted to:
+  - `attraction`
+  - `restaurant`
 
-A CHECK constraint is preferred.
+CHECK constraints are preferred for both `slot` and `category`.
 
 ---
 
 ### Recommended Indexes
 
 - Index on `trip_id`
+- Index on `category`
 - Composite index on:
   - `(trip_id, day_number, sort_order)`
 
@@ -550,6 +563,7 @@ Claude Code must:
    - System architecture documents
 6. Avoid storing raw invite tokens.
 7. Avoid introducing reminder or notification tables in the MVP.
+8. Preserve the itinerary item `category` snapshot in the `itinerary_items` table.
 
 ---
 
@@ -601,6 +615,14 @@ The following operations must happen in one transaction:
 1. Delete existing itinerary items for the trip
 2. Insert newly generated itinerary items
 
+Each inserted itinerary item must persist:
+
+- `candidate_id`, if applicable
+- `category`
+- `title`
+- `note`
+- generated day/slot/sort information
+
 If generation or insertion fails, the transaction must roll back.
 
 ---
@@ -627,6 +649,7 @@ The `candidate_id` field in `itinerary_items` is nullable.
 If a candidate place used by an itinerary item is deleted, the implementation should preserve itinerary readability by ensuring:
 
 - the itinerary item `title` remains available
+- the itinerary item `category` remains available
 - the candidate reference may be set to null if using `ON DELETE SET NULL`
 
 Recommended foreign key behavior:
@@ -634,6 +657,8 @@ Recommended foreign key behavior:
 ```text
 candidate_id -> trip_candidates.id ON DELETE SET NULL
 ```
+
+The `category` column is stored directly on `itinerary_items` so the frontend can continue rendering the correct badge even if the referenced candidate no longer exists.
 
 ---
 
@@ -739,3 +764,5 @@ scheduler metadata tables
 ```
 
 No reminder or notification-related schema should be created in the MVP.
+
+The `itinerary_items` table must persist a `category` snapshot so itinerary responses remain stable and renderable even if the original candidate record is later deleted.

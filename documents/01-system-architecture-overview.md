@@ -175,6 +175,16 @@ Observability:
 
 ## 5. Authentication Architecture
 
+### 5.0 MVP Authentication UX Decision
+
+The CoTrip MVP intentionally uses Cognito Managed Login / Hosted UI to reduce authentication implementation complexity.
+
+This means:
+
+- CoTrip owns the product UI and post-login app experience.
+- Cognito owns the sign-in, sign-up, password recovery, and related authentication screens.
+- The React frontend provides sign-in and sign-out entry points, but does not recreate those authentication forms locally.
+
 ### 5.1 Authentication Responsibility
 
 Authentication is handled by:
@@ -192,13 +202,32 @@ Lambda functions must not directly implement:
 
 ### 5.2 Frontend Authentication Flow
 
+The CoTrip MVP uses:
+
 ```text
-User opens frontend
-→ User signs in through the chosen Cognito authentication flow
-→ Cognito returns JWT tokens
-→ Frontend stores and uses the token according to the final implementation strategy
-→ Frontend sends API requests with:
+Amazon Cognito Managed Login / Hosted UI
+```
+
+The frontend does **not** implement a custom sign-in, sign-up, or forgot-password flow in the MVP.
+
+Instead, authentication follows this flow:
+
+```text
+User clicks the sign-in entry point in the CoTrip frontend
+→ Frontend redirects the user to Cognito Managed Login / Hosted UI
+→ User signs in or completes account registration through Cognito
+→ Cognito redirects the user back to the configured frontend redirect URI
+→ Frontend receives the authorization result according to the selected OAuth flow
+→ Frontend stores and uses the issued tokens according to the final implementation strategy
+→ Frontend sends protected API requests with:
    Authorization: Bearer <JWT>
+```
+
+The exact frontend token-handling implementation should be finalized during the frontend authentication phase, but the **authentication UI strategy is locked**:
+
+```text
+Use Cognito Managed Login / Hosted UI for MVP.
+Do not build a custom local login page in the React app.
 ```
 
 ---
@@ -216,6 +245,36 @@ Lambda functions shall:
 
 The `users` table is the system's application profile layer.  
 Cognito is the authentication identity layer.
+
+---
+
+### Display Name Fallback Policy
+
+When the backend resolves or lazily creates the application-level `users` record, it must derive `display_name` using the following fallback order:
+
+```text
+name
+→ preferred_username
+→ cognito:username
+→ email local part
+→ "CoTrip User"
+```
+
+This fallback chain prevents user bootstrap from failing when optional Cognito profile claims are unavailable.
+
+Examples:
+
+- If `name` exists, use it.
+- Otherwise, if `preferred_username` exists, use it.
+- Otherwise, if `cognito:username` exists, use it.
+- Otherwise, if `email` exists, use the substring before `@`.
+- If none of the above are available, use:
+
+```text
+CoTrip User
+```
+
+The `users.display_name` column is required by the application schema, so a non-empty fallback value must always be produced during user creation.
 
 ---
 

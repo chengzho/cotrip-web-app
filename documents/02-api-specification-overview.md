@@ -158,9 +158,8 @@ All API responses must use the same shape.
 
 | Status Code | Meaning |
 |---|---|
-| `200` | Successful read or update |
+| `200` | Successful read, update, delete, or idempotent state confirmation |
 | `201` | Resource created |
-| `204` | Successful deletion with no body, if chosen |
 | `400` | Invalid request body or query |
 | `401` | Missing or invalid authentication |
 | `403` | Authenticated but not authorized |
@@ -168,6 +167,40 @@ All API responses must use the same shape.
 | `409` | Business conflict, e.g. already joined, itinerary already exists |
 | `422` | Semantically invalid input if used |
 | `500` | Unexpected server error |
+
+---
+
+## 8.1 DELETE Response Policy
+
+For the CoTrip MVP, DELETE endpoints shall use:
+
+```text
+200 OK
+```
+
+with the standard JSON response envelope.
+
+The MVP shall **not** use:
+
+```text
+204 No Content
+```
+
+for application DELETE endpoints.
+
+This keeps frontend response handling consistent across all mutation APIs.
+
+Examples of DELETE-style operations include:
+
+- Deleting a candidate place
+- Removing the current user's vote
+- Deleting an itinerary item
+
+Each DELETE response should return a meaningful `data` object appropriate to the endpoint, such as:
+
+- deleted resource identifier
+- current voted state
+- updated vote count when relevant
 
 ---
 

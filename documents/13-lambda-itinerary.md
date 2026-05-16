@@ -94,14 +94,24 @@ evening
 
 Recommended MVP:
 
-1. Sort attractions by vote count desc.
-2. Sort restaurants by vote count desc.
+1. Sort attractions by vote count descending.
+2. Sort restaurants by vote count descending.
 3. Fill:
    - morning → attraction
    - lunch → restaurant
    - afternoon → attraction
    - dinner → restaurant
 4. Stop when candidates are exhausted.
+5. For every generated itinerary item, persist:
+   - `candidate_id`
+   - `category`
+   - `title`
+   - `note`
+   - day / slot / sort order metadata
+
+The `category` value must be copied from the source candidate and stored directly in `itinerary_items` as a snapshot.
+
+This ensures the itinerary response can still render category badges correctly even if the original candidate record is later deleted.
 
 ### 6.5 Existing Itinerary Policy
 
@@ -128,6 +138,13 @@ PATCH route may update:
 - sort order
 
 Delete route removes one itinerary item.
+
+The itinerary item `category` snapshot is not editable in the MVP.
+
+Manual item editing may change display or scheduling fields, but it must not alter whether the item is categorized as:
+
+- `attraction`
+- `restaurant`
 
 ---
 
@@ -164,9 +181,11 @@ Create unit tests for:
 - Day count calculation
 - Ranking input mapping
 - Slot distribution
+- Category snapshot persistence during generation
 - Existing itinerary conflict
 - Overwrite behavior
 - Item update validation
+- Verification that manual item editing does not alter the stored category snapshot
 
 ## 10.2 Suggested SAM Event Files
 

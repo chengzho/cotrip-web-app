@@ -131,7 +131,12 @@ Recommended generation logic:
    - all day slots are filled, or
    - available candidates are exhausted
 9. Store the generated itinerary in `itinerary_items`.
-10. Return the complete grouped itinerary response.
+10. Each inserted itinerary item must persist a `category` snapshot copied from the source candidate:
+    - `attraction`
+    - `restaurant`
+11. Return the complete grouped itinerary response.
+
+The `category` snapshot is stored directly on `itinerary_items` so that itinerary responses remain stable even if the original candidate place is later deleted and `candidate_id` becomes null.
 
 ---
 
@@ -432,6 +437,14 @@ At least one editable field must be provided.
 | `note` | string | Optional | Updated note; may be null or empty based on final implementation |
 | `sort_order` | integer | Optional | Must be positive |
 
+The itinerary item `category` field is not editable through this endpoint in the MVP.
+
+It is treated as a persisted snapshot created during itinerary generation and should remain stable even if:
+
+- the original candidate place is later deleted
+- `candidate_id` becomes null
+- the item title or note is manually updated
+
 ---
 
 ## 6.6 Allowed Slot Values
@@ -559,21 +572,7 @@ No request body is required.
 
 ---
 
-## 7.6 Success Response Option A
-
-Status:
-
-```text
-204 No Content
-```
-
-No response body.
-
----
-
-## 7.7 Success Response Option B
-
-If the implementation prefers to keep the standard JSON response envelope, use:
+## 7.6 Success Response
 
 Status:
 
@@ -592,19 +591,19 @@ Status:
 }
 ```
 
-### Recommendation
+The CoTrip MVP uses `200 OK` with the shared JSON response envelope for DELETE endpoints.
 
-For consistency with the project-wide response envelope, the MVP may prefer:
+Do not return:
 
 ```text
-200 OK with JSON response body
+204 No Content
 ```
 
-The final implementation must remain consistent across similar DELETE endpoints.
+for itinerary item deletion.
 
 ---
 
-## 7.8 Expected Error Cases
+## 7.7 Expected Error Cases
 
 | Scenario | Status | Error Code |
 |---|---|---|

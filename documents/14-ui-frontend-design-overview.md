@@ -64,7 +64,31 @@ The product name `CoTrip` remains in English.
 
 ---
 
-### 2.3 Traditional Chinese Copy Direction
+### 2.3 Authentication UI Policy
+
+The CoTrip MVP uses:
+
+```text
+Amazon Cognito Managed Login / Hosted UI
+```
+
+The React frontend does **not** implement dedicated custom pages for:
+
+- Sign in
+- Sign up
+- Forgot password
+
+Instead:
+
+- Public-facing sign-in buttons or authentication entry points redirect users to Cognito Managed Login / Hosted UI.
+- After authentication, Cognito redirects users back to the configured CoTrip frontend route.
+- The app UI resumes from the authenticated state.
+
+The frontend design documents and Pencil screens should therefore be interpreted as product screens around the authentication flow, not as instructions to build a fully custom authentication form system.
+
+---
+
+### 2.4 Traditional Chinese Copy Direction
 
 Exact wording may be refined during implementation, but the app should default to:
 
@@ -75,7 +99,7 @@ Exact wording may be refined during implementation, but the app should default t
 
 ---
 
-### 2.4 Example UI Copy Mapping
+### 2.5 Example UI Copy Mapping
 
 | English design placeholder | Preferred Traditional Chinese implementation direction |
 |---|---|
@@ -351,6 +375,8 @@ Introduce CoTrip and communicate the product flow:
 - Do not replace the product preview with large travel photography.
 - Hero copy should be rewritten in natural Traditional Chinese during implementation.
 - The landing page should remain product-led, not tourism-marketplace-led.
+- The sign-in action should redirect to Cognito Managed Login / Hosted UI.
+- Do not create a custom CoTrip sign-in page in the MVP unless the authentication strategy is explicitly changed later.
 
 ---
 

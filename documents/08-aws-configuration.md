@@ -160,15 +160,23 @@ Observability:
 
 The React + Vite frontend shall use environment variables with the `VITE_` prefix.
 
+The MVP authentication UI strategy is:
+
+```text
+Amazon Cognito Managed Login / Hosted UI
+```
+
+The frontend must use Cognito-related environment variables to construct redirect-based login and logout flows.
+
 Recommended variables:
 
 | Variable | Purpose |
 |---|---|
 | `VITE_API_BASE_URL` | API Gateway base URL |
-| `VITE_COGNITO_DOMAIN` | Cognito hosted auth domain or managed login domain |
+| `VITE_COGNITO_DOMAIN` | Cognito Managed Login / Hosted UI domain |
 | `VITE_COGNITO_CLIENT_ID` | Cognito app client ID |
-| `VITE_COGNITO_REDIRECT_URI` | Frontend authentication redirect URI |
-| `VITE_COGNITO_LOGOUT_URI` | Frontend logout redirect URI |
+| `VITE_COGNITO_REDIRECT_URI` | Frontend redirect URI after successful authentication |
+| `VITE_COGNITO_LOGOUT_URI` | Frontend logout return URI |
 
 ---
 
@@ -281,10 +289,16 @@ API Gateway HTTP API
 Use:
 
 ```text
-JWT Authorizer
+API Gateway HTTP API JWT Authorizer
 ```
 
-Expected token source:
+The JWT is issued after the user completes authentication through:
+
+```text
+Amazon Cognito Managed Login / Hosted UI
+```
+
+Expected token source for protected backend requests:
 
 ```text
 Authorization header
@@ -295,6 +309,14 @@ Expected request format:
 ```http
 Authorization: Bearer <JWT>
 ```
+
+The React frontend is responsible for:
+
+- Redirecting users to Cognito Managed Login / Hosted UI for sign-in
+- Handling the redirect back to the app after authentication
+- Supplying the JWT in protected API requests
+
+The React frontend should **not** implement a separate custom sign-in form in the MVP.
 
 ---
 
@@ -587,15 +609,24 @@ Human must decide:
 
 ## 15.2 Cognito Setup Decisions
 
+Human must configure Cognito for:
+
+```text
+Managed Login / Hosted UI authentication
+```
+
 Human must confirm:
 
 - User Pool creation
 - App client settings
-- Redirect URI
-- Logout URI
-- Hosted auth domain or final authentication approach
+- Cognito Managed Login / Hosted UI domain
+- Redirect URI for the frontend
+- Logout URI for the frontend
+- OAuth scopes and allowed flows required by the final frontend implementation
 
-Claude Code may prepare implementation notes or suggested configuration, but should not assume final live resource values.
+Claude Code may prepare implementation notes or suggested configuration, but should not invent final live resource values.
+
+The MVP should not switch to a custom React login-form approach unless explicitly decided later.
 
 ---
 
