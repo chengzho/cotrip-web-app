@@ -2,22 +2,22 @@
 
 ## 1. Purpose
 
-This document defines the high-level architecture of the **Collaborative Travel Planning App**.
+This document defines the high-level architecture of **CoTrip**, a collaborative travel planning web app.
 
-The system allows users to:
+CoTrip allows users to:
 
 - Create travel groups
-- Invite members to join
+- Invite members to join a trip
 - Add candidate attractions and restaurants
 - Vote on candidate places
-- Generate a simple itinerary
-- Configure pre-trip reminder notifications
+- Generate a simple shared itinerary
+- Edit core trip settings
 
 This document is the architectural source of truth for Claude Code during implementation.
 
 ---
 
-## 2. Project Goals
+## 2. Product Scope
 
 ### 2.1 MVP Goals
 
@@ -29,21 +29,48 @@ The MVP shall support:
 4. Candidate place management
 5. Voting and ranking
 6. Simple itinerary generation
-7. Pre-trip reminder scheduling
-8. Basic frontend pages for the above flows
+7. Core trip settings editing
+8. Responsive frontend pages for desktop and mobile reference patterns
 
-### 2.2 Non-Goals for MVP
+---
 
-The following features are intentionally excluded from the first implementation:
+### 2.2 Explicitly Removed from MVP
 
+The following previously considered feature is **removed from the MVP**:
+
+```text
+Pre-trip reminder notifications
+```
+
+Therefore, the MVP shall **not** include:
+
+- Reminder scheduling
+- EventBridge Scheduler
+- Amazon SES
+- Notification Lambda
+- Reminder APIs
+- Reminder database tables
+- Reminder settings UI
+
+---
+
+### 2.3 Deferred / Future Improvements
+
+The following items are intentionally deferred and should **not** be implemented in the MVP unless explicitly requested later:
+
+- Pre-trip reminder notifications
+- Email sending through Amazon SES
+- Event scheduling through EventBridge Scheduler
+- RDS Proxy
+- AWS Secrets Manager
+- Backend automatic deployment through GitHub Actions
 - AI-powered itinerary optimization
 - Google Maps route optimization
 - Real-time WebSocket collaboration
 - Rich role-based permission system beyond `owner` and `member`
 - Payment features
 - Public social feed
-- Mobile native app
-- Complex multi-stage approval workflow
+- Native mobile app
 
 ---
 
@@ -54,7 +81,7 @@ The following features are intentionally excluded from the first implementation:
 - TypeScript
 - React
 - Vite
-- GitHub Pages for static hosting
+- GitHub Pages for static frontend hosting
 
 ### 3.2 Authentication
 
@@ -72,21 +99,25 @@ The following features are intentionally excluded from the first implementation:
 
 - Amazon RDS for PostgreSQL
 
-### 3.5 Notification
-
-- Amazon EventBridge Scheduler
-- Amazon SES
-
-### 3.6 Infrastructure and Deployment
-
-- AWS SAM
-- GitHub Actions
-- GitHub OIDC to AWS for deployment authentication
-
-### 3.7 Observability and Cost Control
+### 3.5 Observability
 
 - Amazon CloudWatch Logs
-- AWS Budgets
+
+### 3.6 Infrastructure and Local Backend Workflow
+
+- AWS SAM
+
+### 3.7 Repository Automation
+
+- GitHub Actions
+
+GitHub Actions may be used for:
+
+- Frontend build validation
+- Frontend deployment automation, such as GitHub Pages publishing
+- Optional repository-level quality checks
+
+Backend AWS deployment remains **manual through AWS SAM** in the MVP unless explicitly changed later.
 
 ---
 
@@ -102,6 +133,13 @@ The following features are intentionally excluded from the first implementation:
                │ HTTPS + Bearer JWT
                ▼
 ┌─────────────────────────────┐
+│     Amazon Cognito          │
+│  User Pool Authentication   │
+└──────────────┬──────────────┘
+               │
+               │ JWT used by frontend
+               ▼
+┌─────────────────────────────┐
 │   API Gateway HTTP API      │
 │   JWT Authorizer            │
 └──────────────┬──────────────┘
@@ -115,39 +153,21 @@ The following features are intentionally excluded from the first implementation:
 │  3. CandidateFunction                               │
 │  4. VoteFunction                                    │
 │  5. ItineraryFunction                               │
-│  6. NotificationFunction                            │
 └──────────────┬───────────────────────────────────────┘
                │
                ▼
 ┌─────────────────────────────┐
 │      PostgreSQL RDS         │
 │  Users / Trips / Votes      │
-│  Itinerary / Reminders      │
+│  Candidates / Itinerary     │
 └─────────────────────────────┘
 
 
-Reminder Scheduling Flow:
+Observability:
 
 ┌─────────────────────────────┐
-│ NotificationFunction        │
-│ Creates reminder schedule   │
-└──────────────┬──────────────┘
-               │
-               ▼
-┌─────────────────────────────┐
-│ EventBridge Scheduler       │
-│ One-time invocation         │
-└──────────────┬──────────────┘
-               │
-               ▼
-┌─────────────────────────────┐
-│ NotificationFunction        │
-│ Sends reminder email        │
-└──────────────┬──────────────┘
-               │
-               ▼
-┌─────────────────────────────┐
-│ Amazon SES                  │
+│      CloudWatch Logs        │
+│  Lambda execution logging   │
 └─────────────────────────────┘
 ```
 
@@ -162,32 +182,39 @@ Authentication is handled by:
 - Amazon Cognito User Pool
 - API Gateway HTTP API JWT Authorizer
 
-Lambda functions must not directly implement login or password management.
+Lambda functions must not directly implement:
+
+- User password management
+- Login credential verification
+- Token signature verification
+
+---
 
 ### 5.2 Frontend Authentication Flow
 
 ```text
 User opens frontend
-→ User clicks Login / Sign up
-→ Cognito authentication flow
-→ Cognito returns JWT
-→ Frontend stores token according to chosen auth strategy
+→ User signs in through the chosen Cognito authentication flow
+→ Cognito returns JWT tokens
+→ Frontend stores and uses the token according to the final implementation strategy
 → Frontend sends API requests with:
    Authorization: Bearer <JWT>
 ```
+
+---
 
 ### 5.3 Backend User Identity Handling
 
 Lambda functions shall:
 
 1. Read JWT claims already validated by API Gateway
-2. Extract:
+2. Extract the relevant user identity fields, especially:
    - Cognito subject: `sub`
    - Email, if available
    - Display name, if available
-3. Resolve or create the application-level user record in the `users` table
+3. Resolve or create the corresponding application-level user record in the `users` table
 
-The `users` table is the system's application profile layer.
+The `users` table is the system's application profile layer.  
 Cognito is the authentication identity layer.
 
 ---
@@ -201,7 +228,6 @@ Cognito is the authentication identity layer.
 | `CandidateFunction` | Create, list, update, delete candidate attractions/restaurants |
 | `VoteFunction` | Vote, remove vote, compute rankings |
 | `ItineraryFunction` | Generate and manage itinerary items |
-| `NotificationFunction` | Manage reminder schedules and send reminder emails |
 
 ---
 
@@ -218,6 +244,8 @@ Frontend
 → Return created trip summary
 ```
 
+---
+
 ### 7.2 Invite a Member
 
 ```text
@@ -228,6 +256,8 @@ Frontend
 → Store token hash in trip_invites
 → Return frontend join URL
 ```
+
+---
 
 ### 7.3 Join a Trip
 
@@ -243,15 +273,20 @@ User confirms join
 → User becomes a member
 ```
 
+---
+
 ### 7.4 Add Candidate Place
 
 ```text
 Frontend
 → POST /trips/{tripId}/candidates
 → CandidateFunction
-→ Validate membership
+→ Validate trip membership
 → Insert into trip_candidates
+→ Return created candidate place
 ```
+
+---
 
 ### 7.5 Vote on Candidate Place
 
@@ -259,11 +294,27 @@ Frontend
 Frontend
 → POST /candidates/{candidateId}/votes
 → VoteFunction
-→ Validate membership
+→ Validate trip membership
 → Insert into candidate_votes
+→ Return updated vote state and vote count
 ```
 
-### 7.6 Generate Itinerary
+---
+
+### 7.6 View Rankings
+
+```text
+Frontend
+→ GET /trips/{tripId}/rankings
+→ VoteFunction
+→ Aggregate votes by candidate
+→ Sort candidates by vote count
+→ Return ranking list
+```
+
+---
+
+### 7.7 Generate Itinerary
 
 ```text
 Frontend
@@ -271,32 +322,22 @@ Frontend
 → ItineraryFunction
 → Fetch trip date range
 → Fetch ranked candidate places
-→ Apply simple generation logic
+→ Apply simple itinerary generation logic
 → Insert itinerary_items
 → Return generated itinerary
 ```
 
-### 7.7 Create Pre-Trip Reminder
+---
+
+### 7.8 Edit Trip Settings
 
 ```text
 Frontend
-→ POST /trips/{tripId}/reminders
-→ NotificationFunction
-→ Validate trip ownership or membership policy
-→ Insert reminder record
-→ Create EventBridge Scheduler one-time schedule
-→ Store scheduler_name in trip_reminders
-```
-
-### 7.8 Send Reminder Email
-
-```text
-EventBridge Scheduler
-→ NotificationFunction
-→ Load reminder information
-→ Load trip and recipient data
-→ Send email using Amazon SES
-→ Mark reminder status as sent
+→ PATCH /trips/{tripId}
+→ TripGroupFunction
+→ Validate owner permission
+→ Update trip metadata
+→ Return updated trip summary
 ```
 
 ---
@@ -312,7 +353,6 @@ EventBridge Scheduler
 | `trip_candidates` | CandidateFunction |
 | `candidate_votes` | VoteFunction |
 | `itinerary_items` | ItineraryFunction |
-| `trip_reminders` | NotificationFunction |
 
 ---
 
@@ -320,28 +360,27 @@ EventBridge Scheduler
 
 ### 9.1 API Security
 
-- All protected APIs require a valid JWT.
-- API Gateway performs JWT verification.
+- Protected APIs require a valid JWT.
+- API Gateway performs JWT authorization.
 - Lambda must still perform business authorization:
   - Is the caller a member of this trip?
   - Is the caller allowed to modify this resource?
   - Is the caller the owner when required?
 
+---
+
 ### 9.2 Database Security
 
-- PostgreSQL RDS should not be publicly accessible.
-- Lambda functions should connect to RDS through the VPC configuration.
-- RDS security group must only allow PostgreSQL access from the Lambda security group.
+- PostgreSQL credentials must not be committed to source control.
+- Database connection settings shall be provided through deployment-time configuration and Lambda environment variables in the MVP.
+- The final AWS networking model must restrict database access appropriately.
 
-### 9.3 Secret Management
+---
 
-- Database credentials must not be committed into source control.
-- Secret-related values must be stored in AWS Secrets Manager or provided through secure deployment configuration.
+### 9.3 Invite Token Security
 
-### 9.4 Invite Token Security
-
-- Raw invite tokens are returned only once to the client.
-- Database stores only the token hash, not the raw token.
+- Raw invite tokens are returned only when the invite is created.
+- The database stores only the token hash, not the raw token.
 - Invite token validity must check:
   - Expiration
   - Revocation status
@@ -349,22 +388,57 @@ EventBridge Scheduler
 
 ---
 
-## 10. Repository-Level Implementation Guidance
+## 10. Deployment and Automation Positioning
+
+### 10.1 Frontend
+
+Frontend deployment may use:
+
+```text
+GitHub Actions
+→ Build Vite frontend
+→ Publish static assets to GitHub Pages
+```
+
+---
+
+### 10.2 Backend
+
+Backend infrastructure and deployment are handled through:
+
+```text
+AWS SAM
+```
+
+For the MVP, backend deployment is expected to be initiated manually by the developer, such as:
+
+```text
+sam build
+sam deploy
+```
+
+Automatic backend deployment through GitHub Actions is deferred.
+
+---
+
+## 11. Repository-Level Implementation Guidance
 
 Claude Code must follow these principles:
 
 1. Do not add new AWS services unless explicitly requested.
-2. Do not invent additional business flows outside this document.
-3. Do not merge all backend logic into one Lambda.
-4. Do not hardcode AWS resource identifiers into Python source files.
-5. Do not hardcode database credentials.
-6. Do not bypass trip membership authorization checks.
-7. Keep shared code reusable through a `common/` package.
-8. Prefer explicit, testable request validation.
+2. Do not reintroduce reminders, notifications, SES, or EventBridge Scheduler.
+3. Do not implement Secrets Manager or RDS Proxy in the MVP.
+4. Do not merge all backend logic into one Lambda.
+5. Do not hardcode AWS resource identifiers into Python source files.
+6. Do not hardcode database credentials into source code.
+7. Do not bypass trip membership authorization checks.
+8. Keep shared backend code reusable through a `common/` package.
+9. Prefer explicit, testable request validation.
+10. Treat this document as the high-level architectural source of truth.
 
 ---
 
-## 11. Recommended Backend Folder Structure
+## 12. Recommended Backend Folder Structure
 
 ```text
 backend/
@@ -386,23 +460,24 @@ backend/
 │   │   └── app.py
 │   ├── vote/
 │   │   └── app.py
-│   ├── itinerary/
-│   │   └── app.py
-│   └── notification/
+│   └── itinerary/
 │       └── app.py
 │
 ├── migrations/
 │   ├── 001_create_users.sql
 │   ├── 002_create_trips.sql
-│   ├── ...
+│   ├── 003_create_trip_members.sql
+│   ├── 004_create_trip_invites.sql
+│   ├── 005_create_trip_candidates.sql
+│   ├── 006_create_candidate_votes.sql
+│   └── 007_create_itinerary_items.sql
 │
 ├── events/
 │   ├── trip/
 │   ├── invite/
 │   ├── candidate/
 │   ├── vote/
-│   ├── itinerary/
-│   └── notification/
+│   └── itinerary/
 │
 └── tests/
     ├── unit/
@@ -411,21 +486,32 @@ backend/
 
 ---
 
-## 12. Final Architectural Decision Summary
+## 13. Final Architectural Decision Summary
 
-The MVP architecture is:
+The CoTrip MVP architecture is:
 
 ```text
 React + TypeScript + Vite
 GitHub Pages
-Cognito User Pool
+Amazon Cognito User Pool
 API Gateway HTTP API + JWT Authorizer
-Python Lambda Functions
-RDS PostgreSQL
+Python AWS Lambda Functions
+Amazon RDS for PostgreSQL
+CloudWatch Logs
+AWS SAM
+GitHub Actions
+```
+
+The CoTrip MVP explicitly does **not** include:
+
+```text
 EventBridge Scheduler
 Amazon SES
-AWS SAM
-GitHub Actions + OIDC
-CloudWatch Logs
-AWS Budgets
+NotificationFunction
+Reminder APIs
+Reminder database tables
+Reminder UI
+Secrets Manager
+RDS Proxy
+Automatic backend deployment through GitHub Actions
 ```

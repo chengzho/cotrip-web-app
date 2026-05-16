@@ -11215,12 +11215,13 @@
                     32,
                     32
                   ],
+                  "justifyContent": "center",
                   "children": [
                     {
                       "type": "frame",
                       "id": "l2jHqh",
                       "name": "stLeft",
-                      "width": "fill_container",
+                      "width": 760,
                       "layout": "vertical",
                       "gap": 16,
                       "children": [
@@ -11609,268 +11610,6 @@
                                           "fontWeight": "500"
                                         }
                                       ]
-                                    }
-                                  ]
-                                }
-                              ]
-                            }
-                          ]
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "mWDwS",
-                      "name": "stRight",
-                      "width": 300,
-                      "layout": "vertical",
-                      "gap": 16,
-                      "children": [
-                        {
-                          "type": "frame",
-                          "id": "B4zalf",
-                          "name": "stRemCard",
-                          "width": "fill_container",
-                          "fill": "$surface-card",
-                          "cornerRadius": "$radius-card",
-                          "stroke": {
-                            "align": "inside",
-                            "thickness": 1,
-                            "fill": "$border"
-                          },
-                          "effect": {
-                            "type": "shadow",
-                            "shadowType": "outer",
-                            "color": "#00000008",
-                            "offset": {
-                              "x": 0,
-                              "y": 2
-                            },
-                            "blur": 8
-                          },
-                          "layout": "vertical",
-                          "children": [
-                            {
-                              "type": "frame",
-                              "id": "vzjps",
-                              "name": "stRemHead",
-                              "layout": "vertical",
-                              "gap": 4,
-                              "padding": [
-                                18,
-                                22,
-                                16,
-                                22
-                              ],
-                              "children": [
-                                {
-                                  "type": "text",
-                                  "id": "APxoY",
-                                  "name": "stRemTitle",
-                                  "fill": "$fg-primary",
-                                  "content": "Reminders",
-                                  "fontFamily": "$font-heading",
-                                  "fontSize": 16,
-                                  "fontWeight": "700"
-                                },
-                                {
-                                  "type": "text",
-                                  "id": "dy2V4",
-                                  "name": "stRemSub",
-                                  "fill": "$fg-muted",
-                                  "textGrowth": "fixed-width",
-                                  "width": "fill_container",
-                                  "content": "Get notified before your trip departs.",
-                                  "lineHeight": 1.5,
-                                  "fontFamily": "$font-body",
-                                  "fontSize": 12,
-                                  "fontWeight": "normal"
-                                }
-                              ]
-                            },
-                            {
-                              "type": "frame",
-                              "id": "y287I1",
-                              "name": "stRemDiv",
-                              "width": "fill_container",
-                              "height": 1,
-                              "fill": "$border"
-                            },
-                            {
-                              "type": "frame",
-                              "id": "GlrJT",
-                              "name": "stRem1",
-                              "width": "fill_container",
-                              "gap": 12,
-                              "padding": [
-                                16,
-                                22
-                              ],
-                              "justifyContent": "space_between",
-                              "alignItems": "center",
-                              "children": [
-                                {
-                                  "type": "frame",
-                                  "id": "V9OBnu",
-                                  "name": "stRem1Left",
-                                  "layout": "vertical",
-                                  "gap": 3,
-                                  "children": [
-                                    {
-                                      "type": "text",
-                                      "id": "insV7",
-                                      "name": "stRem1Label",
-                                      "fill": "$fg-primary",
-                                      "content": "7 days before departure",
-                                      "fontFamily": "$font-body",
-                                      "fontSize": 13,
-                                      "fontWeight": "500"
-                                    },
-                                    {
-                                      "type": "frame",
-                                      "id": "XuctS",
-                                      "name": "stRem1Status",
-                                      "gap": 5,
-                                      "alignItems": "center",
-                                      "children": [
-                                        {
-                                          "type": "ellipse",
-                                          "id": "U0Tnr",
-                                          "name": "stRem1Dot",
-                                          "fill": "#2d7a45",
-                                          "width": 6,
-                                          "height": 6
-                                        },
-                                        {
-                                          "type": "text",
-                                          "id": "e8OEaa",
-                                          "name": "stRem1StatusTxt",
-                                          "fill": "$fg-muted",
-                                          "content": "Scheduled for Apr 3",
-                                          "fontFamily": "$font-body",
-                                          "fontSize": 11,
-                                          "fontWeight": "normal"
-                                        }
-                                      ]
-                                    }
-                                  ]
-                                },
-                                {
-                                  "type": "frame",
-                                  "id": "t5bw1q",
-                                  "name": "stRem1RemoveBtn",
-                                  "cornerRadius": 6,
-                                  "stroke": {
-                                    "align": "inside",
-                                    "thickness": 1,
-                                    "fill": "$border"
-                                  },
-                                  "padding": [
-                                    6,
-                                    12
-                                  ],
-                                  "children": [
-                                    {
-                                      "type": "text",
-                                      "id": "sutIA",
-                                      "name": "stRem1RemoveTxt",
-                                      "fill": "$fg-secondary",
-                                      "content": "Remove",
-                                      "fontFamily": "$font-body",
-                                      "fontSize": 11,
-                                      "fontWeight": "normal"
-                                    }
-                                  ]
-                                }
-                              ]
-                            },
-                            {
-                              "type": "frame",
-                              "id": "Y2cnP",
-                              "name": "stRemDiv2",
-                              "width": "fill_container",
-                              "height": 1,
-                              "fill": "$border"
-                            },
-                            {
-                              "type": "frame",
-                              "id": "v3dYYn",
-                              "name": "stRem2",
-                              "width": "fill_container",
-                              "gap": 12,
-                              "padding": [
-                                16,
-                                22
-                              ],
-                              "justifyContent": "space_between",
-                              "alignItems": "center",
-                              "children": [
-                                {
-                                  "type": "frame",
-                                  "id": "h7WNkj",
-                                  "name": "stRem2Left",
-                                  "layout": "vertical",
-                                  "gap": 3,
-                                  "children": [
-                                    {
-                                      "type": "text",
-                                      "id": "xZLQa",
-                                      "name": "stRem2Label",
-                                      "fill": "$fg-primary",
-                                      "content": "1 day before departure",
-                                      "fontFamily": "$font-body",
-                                      "fontSize": 13,
-                                      "fontWeight": "500"
-                                    },
-                                    {
-                                      "type": "frame",
-                                      "id": "VvFi4",
-                                      "name": "stRem2Status",
-                                      "gap": 5,
-                                      "alignItems": "center",
-                                      "children": [
-                                        {
-                                          "type": "ellipse",
-                                          "id": "Z9PPO0",
-                                          "name": "stRem2Dot",
-                                          "fill": "$fg-muted",
-                                          "width": 6,
-                                          "height": 6
-                                        },
-                                        {
-                                          "type": "text",
-                                          "id": "wZ1Y1",
-                                          "name": "stRem2StatusTxt",
-                                          "fill": "$fg-muted",
-                                          "content": "Not scheduled",
-                                          "fontFamily": "$font-body",
-                                          "fontSize": 11,
-                                          "fontWeight": "normal"
-                                        }
-                                      ]
-                                    }
-                                  ]
-                                },
-                                {
-                                  "type": "frame",
-                                  "id": "dFXNJ",
-                                  "name": "stRem2AddBtn",
-                                  "fill": "$surface-inverse",
-                                  "cornerRadius": 6,
-                                  "padding": [
-                                    6,
-                                    12
-                                  ],
-                                  "children": [
-                                    {
-                                      "type": "text",
-                                      "id": "o3mXmy",
-                                      "name": "stRem2AddTxt",
-                                      "fill": "$fg-inverse",
-                                      "content": "Add",
-                                      "fontFamily": "$font-body",
-                                      "fontSize": 11,
-                                      "fontWeight": "500"
                                     }
                                   ]
                                 }
@@ -16000,7 +15739,7 @@
                       "type": "text",
                       "id": "S7MMBh",
                       "fill": "$fg-primary",
-                      "content": "Settings & Reminders",
+                      "content": "Settings",
                       "fontFamily": "Inter",
                       "fontSize": 15,
                       "fontWeight": "normal"
@@ -16009,7 +15748,7 @@
                       "type": "text",
                       "id": "l186w",
                       "fill": "$fg-muted",
-                      "content": "Trip preferences and notifications",
+                      "content": "Manage trip preferences",
                       "fontFamily": "Inter",
                       "fontSize": 12,
                       "fontWeight": "normal"

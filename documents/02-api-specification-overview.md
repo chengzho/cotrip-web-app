@@ -2,9 +2,19 @@
 
 ## 1. Purpose
 
-This document defines the shared API conventions for the Collaborative Travel Planning App.
+This document defines the shared API conventions for the **CoTrip** collaborative travel planning app.
 
 All domain-specific API documents must follow this specification.
+
+This document applies to the MVP API scope, which includes:
+
+- Trip and member management
+- Invite flow
+- Candidate place management
+- Voting and ranking
+- Itinerary generation and editing
+
+The MVP API does **not** include reminder or notification endpoints.
 
 ---
 
@@ -40,14 +50,21 @@ Authorization: Bearer <JWT>
 
 The JWT is issued by Amazon Cognito and validated by API Gateway HTTP API JWT Authorizer.
 
+---
+
 ### 3.2 Public Routes
 
-The following routes are public or semi-public:
+The following route is public:
 
 | Route | Public? | Notes |
 |---|---|---|
 | `GET /invites/{inviteToken}` | Yes | Used to preview invite information before joining |
-| `POST /invites/{inviteToken}/join` | No | Joining requires login |
+
+The following invite-related route is **not public**:
+
+| Route | Public? | Notes |
+|---|---|---|
+| `POST /invites/{inviteToken}/join` | No | Joining requires authenticated user identity |
 
 ---
 
@@ -60,13 +77,23 @@ The following routes are public or semi-public:
 | `/trips/{tripId}/candidates`, `/trips/{tripId}/candidates/{candidateId}` | `CandidateFunction` |
 | `/candidates/{candidateId}/votes`, `/trips/{tripId}/rankings` | `VoteFunction` |
 | `/trips/{tripId}/itinerary`, `/trips/{tripId}/itinerary/generate`, `/trips/{tripId}/itinerary/items/{itemId}` | `ItineraryFunction` |
-| `/trips/{tripId}/reminders`, `/trips/{tripId}/reminders/{reminderId}` | `NotificationFunction` |
 
 ---
 
-## 5. Request Format
+## 5. API Document Split
 
-### 5.1 Content Type
+Detailed endpoint specifications are documented in:
+
+1. `03-api-trip-and-member.md`
+2. `04-api-invite.md`
+3. `05-api-candidate-and-vote.md`
+4. `06-api-itinerary.md`
+
+---
+
+## 6. Request Format
+
+### 6.1 Content Type
 
 For JSON request bodies:
 
@@ -74,7 +101,9 @@ For JSON request bodies:
 Content-Type: application/json
 ```
 
-### 5.2 HTTP API Event Handling
+---
+
+### 6.2 HTTP API Event Handling
 
 Lambda functions receive API Gateway HTTP API events.
 
@@ -92,11 +121,11 @@ Recommended fields to normalize:
 
 ---
 
-## 6. Shared Response Envelope
+## 7. Shared Response Envelope
 
 All API responses must use the same shape.
 
-### 6.1 Success Response
+### 7.1 Success Response
 
 ```json
 {
@@ -107,7 +136,9 @@ All API responses must use the same shape.
 }
 ```
 
-### 6.2 Error Response
+---
+
+### 7.2 Error Response
 
 ```json
 {
@@ -123,7 +154,7 @@ All API responses must use the same shape.
 
 ---
 
-## 7. HTTP Status Code Policy
+## 8. HTTP Status Code Policy
 
 | Status Code | Meaning |
 |---|---|
@@ -140,7 +171,7 @@ All API responses must use the same shape.
 
 ---
 
-## 8. Standard Error Codes
+## 9. Standard Error Codes
 
 | Error Code | Usage |
 |---|---|
@@ -158,7 +189,7 @@ All API responses must use the same shape.
 
 ---
 
-## 9. Parameter Requirement Notation
+## 10. Parameter Requirement Notation
 
 Each API document uses the following notation:
 
@@ -170,9 +201,9 @@ Each API document uses the following notation:
 
 ---
 
-## 10. Date and Time Format
+## 11. Date and Time Format
 
-### 10.1 Date
+### 11.1 Date
 
 Use ISO-style date strings:
 
@@ -186,19 +217,21 @@ Example:
 2026-08-20
 ```
 
-### 10.2 Timestamp
+---
+
+### 11.2 Timestamp
 
 Use timezone-aware ISO 8601 strings:
 
 ```text
-2026-08-13T09:00:00+08:00
+2026-08-20T09:00:00+08:00
 ```
 
 ---
 
-## 11. Identifier Format
+## 12. Identifier Format
 
-System identifiers use UUID strings.
+System identifiers use UUID strings unless otherwise specified.
 
 Examples:
 
@@ -206,65 +239,103 @@ Examples:
 trip_id
 user_id
 candidate_id
-reminder_id
 item_id
+invite_id
 ```
+
+Invite token values are opaque token strings and are **not** UUIDs.
 
 ---
 
-## 12. Authorization Rules
+## 13. Authorization Rules
 
-### 12.1 Trip Membership
+### 13.1 Trip Membership
 
 Any route that accesses a trip-specific resource must verify that the authenticated user is a member of the trip.
 
-### 12.2 Owner-Only Actions
+Examples:
+
+- `GET /trips/{tripId}`
+- `GET /trips/{tripId}/members`
+- `GET /trips/{tripId}/candidates`
+- `GET /trips/{tripId}/rankings`
+- `GET /trips/{tripId}/itinerary`
+
+---
+
+### 13.2 Owner-Only Actions
 
 Unless otherwise specified, the following actions are owner-only:
 
 - Updating core trip metadata
-- Creating or revoking invite links, if enforced by implementation
-- Deleting reminder configuration, if ownership-only policy is chosen later
+- Creating invite links
 
 The MVP should default to stricter authorization when uncertain.
 
 ---
 
-## 13. Request Validation Rules
+### 13.3 Candidate Ownership and Trip Owner Override
+
+For candidate place modification:
+
+- The candidate creator may update or delete their own candidate place.
+- The trip owner may also update or delete candidate places in the trip.
+
+---
+
+### 13.4 Itinerary Editing Policy
+
+For the MVP, itinerary generation and itinerary item editing may be available to any trip member unless the final implementation deliberately restricts them further.
+
+The chosen implementation must remain consistent across:
+
+- API behavior
+- Frontend UI
+- Lambda authorization checks
+
+---
+
+## 14. Request Validation Rules
 
 Claude Code must implement explicit validation for:
 
 - Required body fields
 - UUID-like identifiers where applicable
-- Date order:
+- Date ordering:
   - `start_date <= end_date`
-- Text length limits
+- Text length limits where reasonable
 - Enum values
 - Duplicate operations
+- Empty PATCH payloads
+- Invalid category values
+- Invalid itinerary slot values
 
 ---
 
-## 14. CORS Requirements
+## 15. CORS Requirements
 
 The API must allow requests from the deployed frontend origin.
 
 Minimum expected CORS support:
 
-- Allowed origin:
+- Allowed origins:
   - GitHub Pages frontend URL
   - Local development URL if configured
+
 - Allowed methods:
   - `GET`
   - `POST`
   - `PATCH`
   - `DELETE`
+  - `OPTIONS`
+
 - Allowed headers:
   - `Content-Type`
   - `Authorization`
 
 ---
 
-## 15. Logging Requirements
+## 16. Logging Requirements
 
 All Lambda-backed API handlers must log:
 
@@ -272,18 +343,31 @@ All Lambda-backed API handlers must log:
 - Route key or normalized route
 - Authenticated user identifier if available
 - Important failure reason
-- Never log:
-  - Raw JWT
-  - Database password
-  - Full invite token if avoidable
+
+Never log:
+
+- Raw JWT
+- Database password
+- Full invite token if avoidable
+- Sensitive credentials
+- Raw database connection strings containing secrets
 
 ---
 
-## 16. API Documentation Split
+## 17. API MVP Scope Summary
 
-Detailed endpoints are documented in:
+The CoTrip MVP API includes:
 
-1. `03-api-trip-and-member.md`
-2. `04-api-invite.md`
-3. `05-api-candidate-and-vote.md`
-4. `06-api-itinerary-and-reminder.md`
+| Domain | Included? |
+|---|---|
+| User identity resolution through Cognito JWT claims | Yes |
+| Trip creation and editing | Yes |
+| Trip member listing | Yes |
+| Invite creation, preview, and joining | Yes |
+| Candidate place CRUD | Yes |
+| Voting and ranking | Yes |
+| Itinerary generation and editing | Yes |
+| Reminder APIs | No |
+| Notification APIs | No |
+
+Reminder and notification endpoints must not be implemented in the MVP.

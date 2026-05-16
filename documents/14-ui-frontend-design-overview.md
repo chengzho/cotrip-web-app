@@ -1,4 +1,4 @@
-# 15 - UI / Frontend Design Overview
+# 14 - UI / Frontend Design Overview
 
 ## 1. Purpose
 
@@ -13,6 +13,7 @@ This document reflects the finalized Pencil UI design direction for:
 - Workspace navigation
 - Design system behavior
 - Traditional Chinese interface copy policy
+- The simplified MVP scope without reminder or notification UI
 
 The attached Pencil design file should be treated as the **primary visual reference**, while this document defines the **implementation rules and screen responsibilities**.
 
@@ -56,24 +57,40 @@ This applies to:
 - Status messages
 - Explanatory text
 - Modal copy
-- Reminder copy
+- Invite-related copy
+- Settings copy
 
 The product name `CoTrip` remains in English.
 
-### Examples
+---
 
-| English design placeholder | Implementation copy direction |
+### 2.3 Traditional Chinese Copy Direction
+
+Exact wording may be refined during implementation, but the app should default to:
+
+- Natural Traditional Chinese product copy
+- Concise, warm, and polished microcopy
+- Avoid direct word-for-word machine translation
+- Preserve the calm, editorial product tone established in the Pencil design
+
+---
+
+### 2.4 Example UI Copy Mapping
+
+| English design placeholder | Preferred Traditional Chinese implementation direction |
 |---|---|
 | My Trip Dashboard | 我的旅程 |
 | Create Trip | 建立旅程 |
 | Candidate Places | 想去的地點 |
 | Group Voting | 群組投票 |
-| Your Itinerary | 我的行程表 / 旅程行程表 |
+| Your Itinerary | 行程表 |
 | Invite Friends | 邀請朋友 |
 | Join this trip | 加入這趟旅程 |
 | Settings | 設定 |
-
-Exact wording may be refined during implementation, but the app should default to **natural Traditional Chinese product copy**, not direct machine translation.
+| Add Place | 新增地點 |
+| Generate Itinerary | 產生行程表 |
+| Save changes | 儲存變更 |
+| Discard | 放棄變更 |
 
 ---
 
@@ -91,6 +108,8 @@ Use the finalized Pencil UI design as the visual reference for:
 - Workspace shell
 - Mobile adaptation
 - Navigation behavior
+- Final CoTrip wordmark placement
+- Final removal of reminder-related UI from the Settings flow
 
 Claude Code should not invent an unrelated UI style.
 
@@ -105,7 +124,7 @@ Use this document together with:
 - `03-api-trip-and-member.md`
 - `04-api-invite.md`
 - `05-api-candidate-and-vote.md`
-- `06-api-itinerary-and-reminder.md`
+- `06-api-itinerary.md`
 
 This document governs **frontend layout and UI behavior**, while the API documents govern **data integration**.
 
@@ -163,13 +182,14 @@ The finalized Pencil design establishes:
 |---|---|
 | Warm page background | Main app background |
 | Near-white cards | Forms, trip cards, ranking rows, itinerary blocks |
-| Slightly softer inner surfaces | Secondary panels, small sub-cards |
+| Slightly softer inner surfaces | Secondary panels, nested blocks, small content containers |
 
 ---
 
 ## 5.2 Buttons
 
 ### Primary CTA
+
 Use for the most important action on a screen.
 
 Examples:
@@ -188,6 +208,7 @@ Visual direction:
 ---
 
 ### Secondary CTA
+
 Use for secondary but still meaningful actions.
 
 Examples:
@@ -196,6 +217,7 @@ Examples:
 - 返回
 - 查看運作方式
 - 重新產生
+- 取消
 
 Visual direction:
 
@@ -205,6 +227,7 @@ Visual direction:
 ---
 
 ### Tertiary / Ghost Actions
+
 Use for subtle actions such as:
 
 - edit icon
@@ -212,6 +235,7 @@ Use for subtle actions such as:
 - copy link
 - see all
 - navigation helper actions
+- minor inline adjustments
 
 ---
 
@@ -226,9 +250,9 @@ Use near-white cards for:
 - candidate place cards
 - ranking rows
 - itinerary day groups
-- settings panels
-- reminder panels
+- settings forms
 - dashboard statistics
+- invite panels
 
 Cards should feel:
 
@@ -253,9 +277,9 @@ Use muted rounded badges for:
 - 身分狀態
   - 擁有者
   - 成員
-- 提醒狀態
-  - 已排程
-  - 尚未設定
+- Current interaction states where appropriate
+  - 已投票
+  - 尚未加入
 
 Badges should remain visually restrained.
 
@@ -276,7 +300,7 @@ The desktop frontend should include the following pages.
 | Trip Workspace: Voting | `/trips/:tripId/voting` |
 | Trip Workspace: Itinerary | `/trips/:tripId/itinerary` |
 | Trip Workspace: Members | `/trips/:tripId/members` |
-| Trip Workspace: Settings / Reminders | `/trips/:tripId/settings` |
+| Trip Workspace: Settings | `/trips/:tripId/settings` |
 
 ---
 
@@ -326,6 +350,7 @@ Introduce CoTrip and communicate the product flow:
 - Keep the page centered and spacious.
 - Do not replace the product preview with large travel photography.
 - Hero copy should be rewritten in natural Traditional Chinese during implementation.
+- The landing page should remain product-led, not tourism-marketplace-led.
 
 ---
 
@@ -363,6 +388,7 @@ Serve as the logged-in user’s home page for trip entry and quick status scanni
 
 - Desktop uses a horizontal multi-card arrangement.
 - The layout should feel spacious and readable.
+- Trip cards should feel like collaborative trip workspaces, not travel product listings.
 
 ---
 
@@ -422,6 +448,12 @@ Explain that joining allows the user to:
 - 新增想去的地點
 - 參與投票
 - 一起調整行程表
+
+### Implementation Notes
+
+- This page should remain focused and ceremonial.
+- It should work well for users arriving from a shared invite link.
+- Copy should be concise and warm.
 
 ---
 
@@ -582,6 +614,7 @@ Act as the group decision-making center.
 
 - Top-ranked items may receive very subtle visual emphasis.
 - Avoid making it look overly gamified.
+- The page should visually feel like the decision-making bridge between Places and Itinerary.
 
 ---
 
@@ -626,6 +659,7 @@ Display the generated shared itinerary and act as the “payoff” screen of the
 
 - Use full-width day sections on desktop.
 - This page should feel structured and rewarding, not fragmented.
+- The visual hierarchy should clearly show that this is the product outcome after place collection and voting.
 
 ---
 
@@ -638,6 +672,7 @@ Show trip members and manage invitations.
 ### Main Content
 
 #### A. Member list
+
 Each member row shows:
 
 - avatar
@@ -648,6 +683,7 @@ Each member row shows:
   - 成員
 
 #### B. Invite friends panel
+
 Should include:
 
 - 邀請朋友 title
@@ -661,19 +697,19 @@ Should include:
 
 - Keep the page clean and collaborative.
 - Do not overbuild advanced role management in the MVP.
+- The invite panel should align with the system’s invite-link functionality.
 
 ---
 
-## 9.6 Trip Workspace: Settings / Reminders
+## 9.6 Trip Workspace: Settings
 
 ### Purpose
 
-Allow editing core trip metadata and managing reminder schedules.
+Allow editing core trip metadata.
 
 ### Main Content
 
-#### A. Trip settings card
-Editable fields:
+Single primary settings form card containing:
 
 - 旅程名稱
 - 目的地
@@ -681,31 +717,17 @@ Editable fields:
 - 結束日期
 - 描述
 
-Actions:
+### Actions
 
-- 放棄變更
-- 儲存變更
-
-#### B. Reminder card
-Reminder options:
-
-- 出發前 7 天提醒
-- 出發前 1 天提醒
-
-Each reminder row should show:
-
-- reminder label
-- current state:
-  - 已排程
-  - 尚未設定
-- relevant action:
-  - 新增
-  - 移除
+- Secondary: 放棄變更
+- Primary: 儲存變更
 
 ### Implementation Notes
 
-- Reminders should appear as a clear secondary panel, not be buried inside the general settings form.
-- The design should visibly support the backend reminder feature.
+- This page should match the final Pencil design after removal of the previous reminder panel.
+- The settings form should be visually balanced as the only primary content block.
+- The MVP does **not** include reminder or notification settings.
+- Do not create a substitute side card or filler content to replace the removed reminder panel.
 
 ---
 
@@ -753,10 +775,12 @@ The `更多` item opens a bottom sheet or compact overlay.
 Menu items include:
 
 - 成員
-- 設定與提醒
+- 設定
 - 邀請朋友, if included according to final implementation structure
 
 This menu should preserve the calm visual system and feel touch-friendly.
+
+The MVP does **not** include any reminder or notification entry in this menu.
 
 ---
 
@@ -827,9 +851,11 @@ The following desktop pages do not currently require dedicated Pencil mobile fra
 - Trip Workspace: Overview
 - Trip Workspace: Voting
 - Trip Workspace: Members
-- Trip Workspace: Settings / Reminders
+- Trip Workspace: Settings
 
-### Expected adaptation strategy
+---
+
+## 13.1 Expected Adaptation Strategy
 
 | Desktop Screen | Mobile Strategy |
 |---|---|
@@ -837,7 +863,7 @@ The following desktop pages do not currently require dedicated Pencil mobile fra
 | Overview | Metric cards stack; quick actions become vertical cards |
 | Voting | Ranking rows become vertical mobile list cards |
 | Members | Member list and invite panel stack vertically |
-| Settings / Reminders | Settings form above, reminder card below |
+| Settings | Settings form becomes a single-column mobile form |
 
 ---
 
@@ -895,8 +921,7 @@ src/
 │   │   └── InvitePanel.tsx
 │   │
 │   └── settings/
-│       ├── TripSettingsForm.tsx
-│       └── ReminderPanel.tsx
+│       └── TripSettingsForm.tsx
 │
 ├── api/
 │   ├── httpClient.ts
@@ -904,8 +929,7 @@ src/
 │   ├── inviteApi.ts
 │   ├── candidateApi.ts
 │   ├── voteApi.ts
-│   ├── itineraryApi.ts
-│   └── reminderApi.ts
+│   └── itineraryApi.ts
 │
 ├── auth/
 │   ├── authClient.ts
@@ -915,8 +939,7 @@ src/
 │   ├── trip.ts
 │   ├── candidate.ts
 │   ├── itinerary.ts
-│   ├── member.ts
-│   └── reminder.ts
+│   └── member.ts
 │
 └── router/
     └── index.tsx
@@ -946,6 +969,8 @@ Claude Code should follow these principles during implementation:
    - trip summaries
 9. Keep responsive behavior intentional rather than relying only on automatic shrinking.
 10. Match the finalized warm editorial product tone as closely as practical.
+11. Do not reintroduce reminder or notification UI.
+12. Settings-related UI should only cover core trip metadata in the MVP.
 
 ---
 
@@ -965,8 +990,10 @@ The frontend MVP implementation is considered complete when:
 10. Voting page is implemented.
 11. Itinerary page is implemented.
 12. Members page is implemented.
-13. Settings / Reminders page is implemented.
+13. Settings page is implemented.
 14. Desktop workspace uses the correct left sidebar structure.
 15. Mobile workspace uses the correct bottom navigation structure.
-16. Interface language is primarily Traditional Chinese.
-17. The visual system remains consistent with the Pencil design reference.
+16. Mobile More menu provides access to Members and Settings.
+17. Interface language is primarily Traditional Chinese.
+18. The visual system remains consistent with the Pencil design reference.
+19. No reminder or notification UI is implemented in the MVP.
