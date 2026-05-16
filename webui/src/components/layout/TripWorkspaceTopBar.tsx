@@ -11,8 +11,8 @@ export default function TripWorkspaceTopBar() {
   return (
     <div className="h-16 border-b border-line bg-surface px-6 flex items-center justify-between shrink-0">
       <div className="flex flex-col min-w-0">
-        <span className="text-sm font-semibold text-ink truncate">旅程名稱</span>
-        <span className="text-xs text-muted truncate">目的地 · 日期區間</span>
+        <span className="text-base font-semibold text-ink truncate">京都與東京春季之旅</span>
+        <span className="text-sm text-muted truncate">日本 · 2024/3/25 – 4/5</span>
       </div>
       <div className="flex items-center gap-4 ml-4 shrink-0">
         <AvatarGroup avatars={placeholderMembers} size="sm" />

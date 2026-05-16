@@ -19,7 +19,7 @@ export default function WorkspaceSidebar() {
           CoTrip
         </span>
       </div>
-      <ul className="px-3 py-3 flex flex-col gap-0.5">
+      <ul className="px-3 py-3 flex flex-col gap-1">
         {navItems.map(({ label, sub }) => (
           <li key={sub}>
             <NavLink
@@ -27,7 +27,7 @@ export default function WorkspaceSidebar() {
               end={sub === ''}
               className={({ isActive }) =>
                 [
-                  'block px-3 py-2 rounded-lg text-sm transition-colors',
+                  'block px-3 py-2.5 rounded-lg text-base transition-colors',
                   isActive
                     ? 'bg-brand-soft text-ink font-medium'
                     : 'text-muted hover:bg-brand-soft hover:text-ink',
