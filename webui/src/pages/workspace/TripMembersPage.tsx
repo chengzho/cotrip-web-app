@@ -1,9 +1,8 @@
 export default function TripMembersPage() {
   return (
-    <div className="flex flex-col items-center justify-center min-h-svh gap-2 text-gray-700">
-      <h1 className="text-2xl font-bold">CoTrip</h1>
-      <p className="text-lg">成員管理</p>
-      <p className="text-sm text-gray-400">此頁面將於後續階段完成</p>
+    <div className="p-6">
+      <h2 className="font-display text-xl font-semibold text-ink mb-2">成員管理</h2>
+      <p className="text-sm text-muted">此頁面將於後續階段完成</p>
     </div>
   )
 }
