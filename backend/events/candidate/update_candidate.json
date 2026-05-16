@@ -1,0 +1,28 @@
+{
+  "version": "2.0",
+  "routeKey": "PATCH /trips/{tripId}/candidates/{candidateId}",
+  "rawPath": "/trips/a1b2c3d4-0000-0000-0000-000000000001/candidates/b2c3d4e5-0000-0000-0000-000000000002",
+  "requestContext": {
+    "requestId": "req-update-candidate-001",
+    "http": {
+      "method": "PATCH",
+      "path": "/trips/a1b2c3d4-0000-0000-0000-000000000001/candidates/b2c3d4e5-0000-0000-0000-000000000002"
+    },
+    "authorizer": {
+      "jwt": {
+        "claims": {
+          "sub": "cognito-sub-alice-001",
+          "email": "alice@example.com",
+          "name": "Alice"
+        }
+      }
+    }
+  },
+  "pathParameters": {
+    "tripId": "a1b2c3d4-0000-0000-0000-000000000001",
+    "candidateId": "b2c3d4e5-0000-0000-0000-000000000002"
+  },
+  "queryStringParameters": null,
+  "body": "{\"note\": \"Better for sunset than afternoon.\", \"source_url\": \"https://example.com/skytree-updated\"}",
+  "isBase64Encoded": false
+}

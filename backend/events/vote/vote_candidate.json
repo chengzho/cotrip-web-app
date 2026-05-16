@@ -1,0 +1,27 @@
+{
+  "version": "2.0",
+  "routeKey": "POST /candidates/{candidateId}/votes",
+  "rawPath": "/candidates/b2c3d4e5-0000-0000-0000-000000000002/votes",
+  "requestContext": {
+    "requestId": "req-vote-candidate-001",
+    "http": {
+      "method": "POST",
+      "path": "/candidates/b2c3d4e5-0000-0000-0000-000000000002/votes"
+    },
+    "authorizer": {
+      "jwt": {
+        "claims": {
+          "sub": "cognito-sub-alice-001",
+          "email": "alice@example.com",
+          "name": "Alice"
+        }
+      }
+    }
+  },
+  "pathParameters": {
+    "candidateId": "b2c3d4e5-0000-0000-0000-000000000002"
+  },
+  "queryStringParameters": null,
+  "body": null,
+  "isBase64Encoded": false
+}

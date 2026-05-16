@@ -1,0 +1,27 @@
+{
+  "version": "2.0",
+  "routeKey": "POST /trips/{tripId}/candidates",
+  "rawPath": "/trips/a1b2c3d4-0000-0000-0000-000000000001/candidates",
+  "requestContext": {
+    "requestId": "req-create-candidate-001",
+    "http": {
+      "method": "POST",
+      "path": "/trips/a1b2c3d4-0000-0000-0000-000000000001/candidates"
+    },
+    "authorizer": {
+      "jwt": {
+        "claims": {
+          "sub": "cognito-sub-alice-001",
+          "email": "alice@example.com",
+          "name": "Alice"
+        }
+      }
+    }
+  },
+  "pathParameters": {
+    "tripId": "a1b2c3d4-0000-0000-0000-000000000001"
+  },
+  "queryStringParameters": null,
+  "body": "{\"category\": \"attraction\", \"name\": \"Tokyo Skytree\", \"address\": \"1 Chome-1-2 Oshiage, Sumida City, Tokyo\", \"note\": \"Nice evening views.\", \"source_url\": \"https://example.com/skytree\"}",
+  "isBase64Encoded": false
+}
