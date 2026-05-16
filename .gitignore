@@ -1,0 +1,31 @@
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Node / Vite
+node_modules/
+dist/
+.vite/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# AWS SAM
+.aws-sam/
+
+# Test / coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
