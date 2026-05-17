@@ -1,22 +1,43 @@
-import AvatarGroup from '../common/AvatarGroup'
-import Button from '../common/Button'
+import type { TripDetail } from '../../types/trip'
 
-const placeholderMembers = [
-  { name: '旅行者' },
-  { name: '好友' },
-  { name: '夥伴' },
-]
+interface TripWorkspaceTopBarProps {
+  trip: TripDetail | null;
+}
 
-export default function TripWorkspaceTopBar() {
+function formatDate(d: string): string {
+  const [y, m, day] = d.split('-')
+  return `${y}/${parseInt(m)}/${parseInt(day)}`
+}
+
+export default function TripWorkspaceTopBar({ trip }: TripWorkspaceTopBarProps) {
   return (
     <div className="h-16 border-b border-line bg-surface px-6 flex items-center justify-between shrink-0">
       <div className="flex flex-col min-w-0">
-        <span className="text-base font-semibold text-ink truncate">京都與東京春季之旅</span>
-        <span className="text-sm text-muted truncate">日本 · 2024/3/25 – 4/5</span>
+        {trip ? (
+          <>
+            <span className="text-base font-semibold text-ink truncate">{trip.title}</span>
+            <span className="text-sm text-muted truncate">
+              {trip.destination} · {formatDate(trip.start_date)} – {formatDate(trip.end_date)}
+            </span>
+          </>
+        ) : (
+          <>
+            <span className="text-base font-semibold text-muted truncate">載入中…</span>
+            <span className="text-sm text-muted truncate">—</span>
+          </>
+        )}
       </div>
       <div className="flex items-center gap-4 ml-4 shrink-0">
-        <AvatarGroup avatars={placeholderMembers} size="sm" />
-        <Button variant="secondary" size="sm">邀請朋友</Button>
+        {trip && (
+          <span className="text-sm text-muted">{trip.summary.member_count} 位成員</span>
+        )}
+        <button
+          type="button"
+          className="inline-flex items-center justify-center px-4 py-1.5 text-sm font-medium rounded-full border border-line text-ink hover:bg-brand-soft transition-colors disabled:opacity-50"
+          disabled
+        >
+          邀請朋友
+        </button>
       </div>
     </div>
   )
