@@ -1,59 +1,57 @@
 import { Link } from 'react-router-dom'
-import AvatarGroup from '../common/AvatarGroup'
-import Badge from '../common/Badge'
 import Card from '../common/Card'
 
-export type TripStatus = '規劃中' | '投票中' | '行程已完成'
-export type TripRole = '擁有者' | '成員'
-
 export interface TripCardProps {
-  id: string
-  title: string
-  destination: string
-  dateRange: string
-  status: TripStatus
-  members: { name: string }[]
-  role: TripRole
+  trip_id: string;
+  title: string;
+  destination: string;
+  start_date: string;
+  end_date: string;
+  role: 'owner' | 'member';
+  member_count: number;
 }
 
-const statusVariant: Record<TripStatus, 'neutral' | 'warm' | 'active'> = {
-  規劃中: 'warm',
-  投票中: 'active',
-  行程已完成: 'neutral',
+const roleLabel: Record<'owner' | 'member', string> = {
+  owner: '擁有者',
+  member: '成員',
+}
+
+function formatDateRange(start: string, end: string): string {
+  const fmt = (d: string) => {
+    const [y, m, day] = d.split('-');
+    return `${y}/${parseInt(m)}/${parseInt(day)}`;
+  };
+  return `${fmt(start)} – ${fmt(end)}`;
 }
 
 export default function TripCard({
-  id,
+  trip_id,
   title,
   destination,
-  dateRange,
-  status,
-  members,
+  start_date,
+  end_date,
   role,
+  member_count,
 }: TripCardProps) {
   return (
     <Card shadow className="p-5 flex flex-col gap-4">
-      <div className="flex items-start justify-between gap-3">
+      <div>
         <h3 className="font-display text-base font-semibold text-ink leading-snug">
           {title}
         </h3>
-        <Badge variant={statusVariant[status]} className="shrink-0">
-          {status}
-        </Badge>
       </div>
 
       <div className="flex flex-col gap-0.5">
         <p className="text-sm text-muted">{destination}</p>
-        <p className="text-sm text-muted">{dateRange}</p>
+        <p className="text-sm text-muted">{formatDateRange(start_date, end_date)}</p>
       </div>
 
       <div className="flex items-center justify-between pt-3 border-t border-line">
         <div className="flex items-center gap-2">
-          <AvatarGroup avatars={members} size="sm" max={3} />
-          <span className="text-xs text-muted">{role}</span>
+          <span className="text-xs text-muted">{member_count} 人 · {roleLabel[role]}</span>
         </div>
         <Link
-          to={`/trips/${id}`}
+          to={`/trips/${trip_id}`}
           className="inline-flex items-center justify-center px-4 py-1.5 text-sm font-medium rounded-full border border-line text-ink hover:bg-brand-soft transition-colors"
         >
           開啟旅程
