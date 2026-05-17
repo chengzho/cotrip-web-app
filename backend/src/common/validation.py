@@ -48,6 +48,12 @@ def validate_enum(value: Any, allowed: Collection[str], field_name: str) -> str:
     return value
 
 
+def validate_positive_integer(value: Any, field_name: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        raise ValidationError(f"{field_name} must be a positive integer")
+    return value
+
+
 def ensure_non_empty_patch_payload(body: dict) -> None:
     if not body:
         raise ValidationError("Request body must contain at least one field to update")

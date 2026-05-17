@@ -55,6 +55,11 @@ class InternalServerError(AppError):
         super().__init__(ErrorCode.INTERNAL_SERVER_ERROR, message, 500)
 
 
+class ItineraryAlreadyExistsError(AppError):
+    def __init__(self, message: str = "Itinerary already exists for this trip") -> None:
+        super().__init__(ErrorCode.ITINERARY_ALREADY_EXISTS, message, 409)
+
+
 class InviteExpiredError(AppError):
     def __init__(self, message: str = "Invite has expired") -> None:
         super().__init__(ErrorCode.INVITE_EXPIRED, message, 400)
