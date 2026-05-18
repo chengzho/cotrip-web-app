@@ -1,7 +1,9 @@
 import { createBrowserRouter } from 'react-router-dom'
+import RootLayout from '../components/layout/RootLayout'
 import PublicLayout from '../components/layout/PublicLayout'
 import AppLayout from '../components/layout/AppLayout'
 import TripWorkspaceLayout from '../components/layout/TripWorkspaceLayout'
+import RequireAuth from '../components/auth/RequireAuth'
 import LandingPage from '../pages/LandingPage'
 import TripsDashboardPage from '../pages/TripsDashboardPage'
 import CreateTripPage from '../pages/CreateTripPage'
@@ -17,32 +19,42 @@ import NotFoundPage from '../pages/NotFoundPage'
 const router = createBrowserRouter(
   [
     {
-      element: <PublicLayout />,
+      element: <RootLayout />,
       children: [
-        { path: '/', element: <LandingPage /> },
-        { path: '/join/:inviteToken', element: <JoinInvitePage /> },
+        {
+          element: <PublicLayout />,
+          children: [
+            { path: '/', element: <LandingPage /> },
+            { path: '/join/:inviteToken', element: <JoinInvitePage /> },
+          ],
+        },
+        {
+          element: <RequireAuth />,
+          children: [
+            {
+              element: <AppLayout />,
+              children: [
+                { path: '/trips', element: <TripsDashboardPage /> },
+                { path: '/trips/new', element: <CreateTripPage /> },
+              ],
+            },
+            {
+              path: '/trips/:tripId',
+              element: <TripWorkspaceLayout />,
+              children: [
+                { index: true, element: <TripOverviewPage /> },
+                { path: 'places', element: <TripPlacesPage /> },
+                { path: 'voting', element: <TripVotingPage /> },
+                { path: 'itinerary', element: <TripItineraryPage /> },
+                { path: 'members', element: <TripMembersPage /> },
+                { path: 'settings', element: <TripSettingsPage /> },
+              ],
+            },
+          ],
+        },
+        { path: '*', element: <NotFoundPage /> },
       ],
     },
-    {
-      element: <AppLayout />,
-      children: [
-        { path: '/trips', element: <TripsDashboardPage /> },
-        { path: '/trips/new', element: <CreateTripPage /> },
-      ],
-    },
-    {
-      path: '/trips/:tripId',
-      element: <TripWorkspaceLayout />,
-      children: [
-        { index: true, element: <TripOverviewPage /> },
-        { path: 'places', element: <TripPlacesPage /> },
-        { path: 'voting', element: <TripVotingPage /> },
-        { path: 'itinerary', element: <TripItineraryPage /> },
-        { path: 'members', element: <TripMembersPage /> },
-        { path: 'settings', element: <TripSettingsPage /> },
-      ],
-    },
-    { path: '*', element: <NotFoundPage /> },
   ],
   { basename: import.meta.env.BASE_URL },
 )

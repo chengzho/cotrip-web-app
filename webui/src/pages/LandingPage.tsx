@@ -2,6 +2,7 @@ import AvatarGroup from '../components/common/AvatarGroup'
 import Badge from '../components/common/Badge'
 import Button from '../components/common/Button'
 import Card from '../components/common/Card'
+import { useAuth } from '../context/AuthContext'
 
 const previewMembers = [
   { name: 'Sophie' },
@@ -35,6 +36,8 @@ const steps = [
 ]
 
 export default function LandingPage() {
+  const { signIn } = useAuth()
+
   return (
     <div>
       {/* Hero */}
@@ -53,7 +56,7 @@ export default function LandingPage() {
           讓整個群組輕鬆完成旅遊規劃。
         </p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
-          <Button size="lg">開始規劃</Button>
+          <Button size="lg" onClick={() => { void signIn('/trips') }}>開始規劃</Button>
           <Button variant="secondary" size="lg">
             查看運作方式
           </Button>

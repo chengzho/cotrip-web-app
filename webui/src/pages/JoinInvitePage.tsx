@@ -7,6 +7,7 @@ import LoadingState from '../components/common/LoadingState'
 import ErrorState from '../components/common/ErrorState'
 import FormError from '../components/common/FormError'
 import { previewInvite, joinInvite, ApiError } from '../api/index'
+import { useAuth } from '../context/AuthContext'
 import type { InvitePreview } from '../types/invite'
 
 function formatDate(d: string): string {
@@ -40,6 +41,7 @@ function joinErrorMessage(err: unknown): string {
 export default function JoinInvitePage() {
   const { inviteToken } = useParams<{ inviteToken: string }>()
   const navigate = useNavigate()
+  const { isAuthenticated, signIn } = useAuth()
 
   const [preview, setPreview] = useState<InvitePreview | null>(null)
   const [previewLoading, setPreviewLoading] = useState(!!inviteToken)
@@ -61,6 +63,10 @@ export default function JoinInvitePage() {
 
   async function handleJoin() {
     if (!inviteToken) return
+    if (!isAuthenticated) {
+      void signIn(window.location.pathname)
+      return
+    }
     setJoinError(null)
     setJoining(true)
     try {

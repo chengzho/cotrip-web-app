@@ -1,3 +1,4 @@
+import { useAuth } from '../../context/AuthContext'
 import type { TripDetail } from '../../types/trip'
 
 interface TripWorkspaceTopBarProps {
@@ -10,6 +11,8 @@ function formatDate(d: string): string {
 }
 
 export default function TripWorkspaceTopBar({ trip }: TripWorkspaceTopBarProps) {
+  const { user, signOut } = useAuth()
+
   return (
     <div className="h-16 border-b border-line bg-surface px-6 flex items-center justify-between shrink-0">
       <div className="flex flex-col min-w-0">
@@ -38,6 +41,22 @@ export default function TripWorkspaceTopBar({ trip }: TripWorkspaceTopBarProps) 
         >
           邀請朋友
         </button>
+        {user && (
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-full bg-brand-soft border border-line flex items-center justify-center shrink-0">
+              <span className="text-xs font-medium text-ink select-none">
+                {user.initial}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={signOut}
+              className="text-sm text-muted hover:text-ink transition-colors"
+            >
+              登出
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )
