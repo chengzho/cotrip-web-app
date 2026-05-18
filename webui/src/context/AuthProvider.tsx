@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { configureAccessTokenProvider } from '../api/httpClient'
+import { getMe, updateMe } from '../api/userProfileApi'
 import {
   buildAuthorizeUrl,
   buildLogoutUrl,
@@ -17,6 +18,7 @@ import {
 import { decodeJwtPayload, getDisplayName, isTokenExpired } from '../auth/jwt'
 import { AuthContext } from './AuthContext'
 import type { AuthUser } from './AuthContext'
+import type { UserProfile } from '../types/user'
 import type { JwtPayload } from '../auth/jwt'
 
 function buildUser(payload: JwtPayload): AuthUser {
@@ -33,6 +35,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
   const [isInitializing, setIsInitializing] = useState(true)
   const [user, setUser] = useState<AuthUser | null>(null)
   const [authError, setAuthError] = useState<string | null>(null)
+  const [profile, setProfile] = useState<UserProfile | null>(null)
   const navigate = useNavigate()
   const didInit = useRef(false)
 
@@ -45,6 +48,22 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
       return session ? session.id_token : null
     })
   }, [])
+
+  // Fetch CoTrip backend profile once auth is ready.
+  // Fires when user identity or initializing state changes.
+  // Profile cleanup on sign-out is handled by the signOut callback.
+  useEffect(() => {
+    if (!user || isInitializing) return
+
+    let cancelled = false
+    getMe()
+      .then(p => { if (!cancelled) setProfile(p) })
+      .catch(() => {
+        // Backend not yet deployed or temporarily unavailable.
+        // UI falls back to JWT-derived display name.
+      })
+    return () => { cancelled = true }
+  }, [user, isInitializing])
 
   useEffect(() => {
     // Guard against React StrictMode double-invocation
@@ -126,12 +145,18 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
   const signOut = useCallback(() => {
     clearSession()
     setUser(null)
+    setProfile(null)
     configureAccessTokenProvider(null)
     try {
       window.location.href = buildLogoutUrl()
     } catch {
       window.location.href = '/'
     }
+  }, [])
+
+  const updateProfile = useCallback(async (displayName: string) => {
+    const updated = await updateMe({ display_name: displayName })
+    setProfile(updated)
   }, [])
 
   return (
@@ -141,8 +166,10 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
         isInitializing,
         user,
         authError,
+        profile,
         signIn,
         signOut,
+        updateProfile,
       }}
     >
       {children}
