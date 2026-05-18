@@ -57,7 +57,7 @@ Parameters:
     Description: Cognito App Client ID — provided at deployment time
   AllowedCorsOrigins:
     Type: CommaDelimitedList
-    Default: "http://localhost:5173"
+    Default: "http://localhost:5173,https://chengzho.github.io"
     Description: Comma-separated list of allowed CORS origins (local dev + deployed frontend)
   LambdaSubnetIds:
     Type: CommaDelimitedList

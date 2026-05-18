@@ -8,6 +8,21 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      // Decode GitHub Pages 404 redirect: restore path from encoded query param
+      // before React Router initialises so it sees the correct URL.
+      (function (l) {
+        if (l.search[1] === '/') {
+          var decoded = l.search.slice(1).split('&').map(function (s) {
+            return s.replace(/~and~/g, '&');
+          });
+          window.history.replaceState(
+            null, null,
+            decoded[0] + (decoded[1] ? '?' + decoded[1] : '') + l.hash
+          );
+        }
+      }(window.location));
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
