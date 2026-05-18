@@ -147,6 +147,12 @@ Stores the application-level user profile associated with Amazon Cognito identit
 Cognito manages authentication.  
 The `users` table stores the internal application identity used by CoTrip business logic.
 
+The `display_name` column serves as the app-level **nickname** field.  
+It is the primary user-facing name shown across all collaborative surfaces (candidate proposer, member list, invite preview, header).  
+Users may update this value through `PATCH /me`.  
+If not yet explicitly set by the user, the backend derives a temporary fallback at login time (see `15-api-user-profile.md` section 6).  
+No separate schema migration is needed to support the nickname feature; `display_name` already exists and is non-nullable.
+
 ---
 
 ### Columns
@@ -513,6 +519,7 @@ trip_candidates
 | Domain | Primary Tables |
 |---|---|
 | Shared user/auth layer | `users` |
+| User profile domain (`UserProfileFunction`) | `users` (read + display name update) |
 | Trip group domain | `trips`, `trip_members` |
 | Invite domain | `trip_invites` |
 | Candidate domain | `trip_candidates` |

@@ -70,6 +70,9 @@ Parameters:
     Description: >
       Security group IDs attached to Lambda functions (comma-separated).
       The RDS security group must allow inbound PostgreSQL (port 5432) from this group.
+  LambdaExecutionRoleArn:
+    Type: String
+    Description: Existing IAM execution role ARN to attach to all CoTrip Lambda functions.
 
 Resources:
 
@@ -109,8 +112,7 @@ Resources:
       FunctionName: !Sub cotrip-${AppEnv}-trip-group-function
       CodeUri: src/
       Handler: trip_group.app.lambda_handler
-      Policies:
-        - AWSLambdaVPCAccessExecutionRole
+      Role: !Ref LambdaExecutionRoleArn
       Events:
         CreateTrip:
           Type: HttpApi
@@ -155,8 +157,7 @@ Resources:
       FunctionName: !Sub cotrip-${AppEnv}-invite-function
       CodeUri: src/
       Handler: invite.app.lambda_handler
-      Policies:
-        - AWSLambdaVPCAccessExecutionRole
+      Role: !Ref LambdaExecutionRoleArn
       Events:
         CreateInvite:
           Type: HttpApi
@@ -192,8 +193,7 @@ Resources:
       FunctionName: !Sub cotrip-${AppEnv}-candidate-function
       CodeUri: src/
       Handler: candidate.app.lambda_handler
-      Policies:
-        - AWSLambdaVPCAccessExecutionRole
+      Role: !Ref LambdaExecutionRoleArn
       Events:
         ListCandidates:
           Type: HttpApi
@@ -232,8 +232,7 @@ Resources:
       FunctionName: !Sub cotrip-${AppEnv}-vote-function
       CodeUri: src/
       Handler: vote.app.lambda_handler
-      Policies:
-        - AWSLambdaVPCAccessExecutionRole
+      Role: !Ref LambdaExecutionRoleArn
       Events:
         AddVote:
           Type: HttpApi
@@ -267,8 +266,7 @@ Resources:
       FunctionName: !Sub cotrip-${AppEnv}-itinerary-function
       CodeUri: src/
       Handler: itinerary.app.lambda_handler
-      Policies:
-        - AWSLambdaVPCAccessExecutionRole
+      Role: !Ref LambdaExecutionRoleArn
       Events:
         GenerateItinerary:
           Type: HttpApi
@@ -295,10 +293,39 @@ Resources:
             Method: DELETE
             Path: /trips/{tripId}/itinerary/items/{itemId}
 
+  # ---------------------------------------------------------------------------
+  # User profile management
+  # Routes: GET  /me
+  #         PATCH /me
+  # ---------------------------------------------------------------------------
+  UserProfileFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub cotrip-${AppEnv}-user-profile-function
+      CodeUri: src/
+      Handler: user_profile.app.lambda_handler
+      Role: !Ref LambdaExecutionRoleArn
+      Events:
+        GetMe:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref CoTripHttpApi
+            Method: GET
+            Path: /me
+        UpdateMe:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref CoTripHttpApi
+            Method: PATCH
+            Path: /me
+
 Outputs:
   HttpApiUrl:
     Description: HTTP API endpoint base URL
     Value: !Sub "https://${CoTripHttpApi}.execute-api.${AWS::Region}.amazonaws.com/${AppEnv}"
+  UserProfileFunction:
+    Description: UserProfileFunction ARN
+    Value: !GetAtt UserProfileFunction.Arn
   TripGroupFunction:
     Description: TripGroupFunction ARN
     Value: !GetAtt TripGroupFunction.Arn

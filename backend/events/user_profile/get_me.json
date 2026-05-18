@@ -1,0 +1,25 @@
+{
+  "version": "2.0",
+  "routeKey": "GET /me",
+  "rawPath": "/me",
+  "requestContext": {
+    "requestId": "req-get-me-001",
+    "http": {
+      "method": "GET",
+      "path": "/me"
+    },
+    "authorizer": {
+      "jwt": {
+        "claims": {
+          "sub": "cognito-sub-alice-001",
+          "email": "alice@example.com",
+          "name": "Alice"
+        }
+      }
+    }
+  },
+  "pathParameters": null,
+  "queryStringParameters": null,
+  "body": null,
+  "isBase64Encoded": false
+}

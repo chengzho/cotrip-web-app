@@ -1,0 +1,25 @@
+{
+  "version": "2.0",
+  "routeKey": "PATCH /me",
+  "rawPath": "/me",
+  "requestContext": {
+    "requestId": "req-update-me-001",
+    "http": {
+      "method": "PATCH",
+      "path": "/me"
+    },
+    "authorizer": {
+      "jwt": {
+        "claims": {
+          "sub": "cognito-sub-alice-001",
+          "email": "alice@example.com",
+          "name": "Alice"
+        }
+      }
+    }
+  },
+  "pathParameters": null,
+  "queryStringParameters": null,
+  "body": "{\"display_name\": \"小周\"}",
+  "isBase64Encoded": false
+}

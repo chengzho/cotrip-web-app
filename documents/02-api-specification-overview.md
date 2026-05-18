@@ -72,6 +72,7 @@ The following invite-related route is **not public**:
 
 | Route Group | Lambda Function |
 |---|---|
+| `/me` | `UserProfileFunction` |
 | `/trips`, `/trips/{tripId}`, `/trips/{tripId}/members` | `TripGroupFunction` |
 | `/trips/{tripId}/invites`, `/invites/{inviteToken}` | `InviteFunction` |
 | `/trips/{tripId}/candidates`, `/trips/{tripId}/candidates/{candidateId}` | `CandidateFunction` |
@@ -88,6 +89,7 @@ Detailed endpoint specifications are documented in:
 2. `04-api-invite.md`
 3. `05-api-candidate-and-vote.md`
 4. `06-api-itinerary.md`
+5. `15-api-user-profile.md`
 
 ---
 
@@ -394,6 +396,7 @@ The CoTrip MVP API includes:
 | Domain | Included? |
 |---|---|
 | User identity resolution through Cognito JWT claims | Yes |
+| User profile read and display name update (`/me`) | Yes |
 | Trip creation and editing | Yes |
 | Trip member listing | Yes |
 | Invite creation, preview, and joining | Yes |
