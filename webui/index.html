@@ -18,7 +18,7 @@
           });
           window.history.replaceState(
             null, null,
-            decoded[0] + (decoded[1] ? '?' + decoded[1] : '') + l.hash
+            l.pathname + decoded[0].replace(/^\//, '') + (decoded[1] ? '?' + decoded[1] : '') + l.hash
           );
         }
       }(window.location));
