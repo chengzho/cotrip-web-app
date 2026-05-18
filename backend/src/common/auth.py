@@ -25,7 +25,7 @@ def get_email_from_claims(claims: dict) -> str | None:
 
 
 def derive_display_name(claims: dict) -> str:
-    for key in ("name", "preferred_username", "cognito:username"):
+    for key in ("name", "preferred_username"):
         value = claims.get(key)
         if isinstance(value, str) and value.strip():
             return value.strip()

@@ -96,17 +96,32 @@ def test_derive_display_name_falls_back_to_preferred_username():
     assert derive_display_name(claims) == "alice99"
 
 
-def test_derive_display_name_falls_back_to_cognito_username():
+def test_derive_display_name_skips_cognito_username_falls_to_email_local_part():
+    # cognito:username is an internal Cognito identifier — must not be used as display name
     claims = {
         "cognito:username": "alice-cog",
         "email": "alice@example.com",
     }
-    assert derive_display_name(claims) == "alice-cog"
+    assert derive_display_name(claims) == "alice"
+
+
+def test_derive_display_name_skips_sub_falls_to_email_local_part():
+    # sub is an internal UUID — must not be used as display name
+    claims = {
+        "sub": "74b864b8-80b1-70bd-1e98-57d696a328b9",
+        "email": "alice@example.com",
+    }
+    assert derive_display_name(claims) == "alice"
 
 
 def test_derive_display_name_falls_back_to_email_local_part():
     claims = {"email": "alice@example.com"}
     assert derive_display_name(claims) == "alice"
+
+
+def test_derive_display_name_email_local_part_from_real_address():
+    claims = {"email": "jczho.mg14@nycu.edu.tw"}
+    assert derive_display_name(claims) == "jczho.mg14"
 
 
 def test_derive_display_name_falls_back_to_default():

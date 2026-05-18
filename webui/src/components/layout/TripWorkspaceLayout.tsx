@@ -72,7 +72,7 @@ export default function TripWorkspaceLayout() {
         </div>
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto bg-surface-soft">
           {tripLoading ? (
             <LoadingState message="載入旅程中…" className="py-24" />
           ) : tripError ? (
