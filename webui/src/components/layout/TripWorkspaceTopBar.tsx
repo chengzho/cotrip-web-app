@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import NicknameModal from '../profile/NicknameModal'
 import type { TripDetail } from '../../types/trip'
@@ -56,12 +55,6 @@ export default function TripWorkspaceTopBar({ trip }: TripWorkspaceTopBarProps) 
           {trip && (
             <span className="text-sm text-muted hidden lg:block">{trip.summary.member_count} 位成員</span>
           )}
-          <Link
-            to="/trips"
-            className="inline-flex items-center justify-center px-4 py-1.5 text-sm font-medium rounded-full border border-line text-ink hover:bg-brand-soft transition-colors"
-          >
-            我的旅程
-          </Link>
           <button
             type="button"
             className="inline-flex items-center justify-center px-4 py-1.5 text-sm font-medium rounded-full border border-line text-ink hover:bg-brand-soft transition-colors disabled:opacity-50"
