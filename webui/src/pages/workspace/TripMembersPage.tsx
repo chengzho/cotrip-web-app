@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useOutletContext, useParams } from 'react-router-dom'
 import Badge from '../../components/common/Badge'
 import Button from '../../components/common/Button'
 import Card from '../../components/common/Card'
@@ -8,7 +8,7 @@ import ErrorState from '../../components/common/ErrorState'
 import EmptyState from '../../components/common/EmptyState'
 import InvitePanel from '../../components/members/InvitePanel'
 import { listTripMembers, removeTripMember, ApiError } from '../../api/index'
-import { useAuth } from '../../context/AuthContext'
+import type { WorkspaceOutletContext } from '../../components/layout/TripWorkspaceLayout'
 import type { TripMember } from '../../types/trip'
 
 const ROLE_LABEL: Record<string, string> = { owner: '擁有者', member: '成員' }
@@ -17,7 +17,7 @@ const ROLE_BADGE: Record<string, BadgeVariant> = { owner: 'warm', member: 'neutr
 
 export default function TripMembersPage() {
   const { tripId } = useParams<{ tripId: string }>()
-  const { profile } = useAuth()
+  const { trip } = useOutletContext<WorkspaceOutletContext>()
 
   const [members, setMembers] = useState<TripMember[]>([])
   const [loading, setLoading] = useState(true)
@@ -27,8 +27,7 @@ export default function TripMembersPage() {
   const [removing, setRemoving] = useState(false)
   const [removeError, setRemoveError] = useState<string | null>(null)
 
-  const currentUserId = profile?.user_id ?? null
-  const isOwner = members.some(m => m.user_id === currentUserId && m.role === 'owner')
+  const isOwner = trip?.current_user_role === 'owner'
 
   useEffect(() => {
     if (!tripId) return
@@ -107,7 +106,7 @@ export default function TripMembersPage() {
                   >
                     {ROLE_LABEL[member.role] ?? member.role}
                   </Badge>
-                  {isOwner && member.role !== 'owner' && member.user_id !== currentUserId && (
+                  {isOwner && member.role !== 'owner' && (
                     <button
                       type="button"
                       onClick={() => { setConfirmTarget(member); setRemoveError(null) }}
