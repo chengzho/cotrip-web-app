@@ -185,7 +185,7 @@ function DeleteTripSection({ tripId, tripTitle }: DeleteTripSectionProps) {
 
   return (
     <>
-      <div className="rounded-xl border border-red-300 bg-red-50 p-6">
+      <div className="rounded-xl border-2 border-red-400 bg-red-50 p-6 shadow-sm">
         <h3 className="text-base font-semibold text-red-700 mb-2">危險操作</h3>
         <p className="text-sm text-muted mb-5 leading-relaxed">
           刪除此旅程後，所有成員、邀請連結、提案地點、投票與行程表都會被永久移除。此操作無法復原。
