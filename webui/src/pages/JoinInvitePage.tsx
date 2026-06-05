@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import Badge from '../components/common/Badge'
 import Button from '../components/common/Button'
 import Card from '../components/common/Card'
@@ -41,6 +41,7 @@ function joinErrorMessage(err: unknown): string {
 export default function JoinInvitePage() {
   const { inviteToken } = useParams<{ inviteToken: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
   const { isAuthenticated, signIn } = useAuth()
 
   const [preview, setPreview] = useState<InvitePreview | null>(null)
@@ -64,7 +65,7 @@ export default function JoinInvitePage() {
   async function handleJoin() {
     if (!inviteToken) return
     if (!isAuthenticated) {
-      void signIn(window.location.pathname)
+      void signIn(location.pathname)
       return
     }
     setJoinError(null)
