@@ -1,12 +1,12 @@
 import { useState, type FormEvent } from 'react'
-import { useOutletContext, useParams } from 'react-router-dom'
+import { useNavigate, useOutletContext, useParams } from 'react-router-dom'
 import Button from '../../components/common/Button'
 import Card from '../../components/common/Card'
 import LoadingState from '../../components/common/LoadingState'
 import ErrorState from '../../components/common/ErrorState'
 import FormError from '../../components/common/FormError'
 import SuccessMessage from '../../components/common/SuccessMessage'
-import { updateTrip, ApiError } from '../../api/index'
+import { updateTrip, deleteTrip, ApiError } from '../../api/index'
 import type { WorkspaceOutletContext } from '../../components/layout/TripWorkspaceLayout'
 import type { TripDetail } from '../../types/trip'
 
@@ -160,6 +160,96 @@ function SettingsForm({ trip, tripId, refreshTrip }: SettingsFormProps) {
   )
 }
 
+interface DeleteTripSectionProps {
+  tripId: string;
+  tripTitle: string;
+}
+
+function DeleteTripSection({ tripId, tripTitle }: DeleteTripSectionProps) {
+  const navigate = useNavigate()
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+
+  async function handleDelete() {
+    setDeleting(true)
+    setDeleteError(null)
+    try {
+      await deleteTrip(tripId)
+      navigate('/trips', { replace: true })
+    } catch (err) {
+      setDeleteError(err instanceof ApiError ? err.message : '刪除旅程失敗，請稍後再試。')
+      setDeleting(false)
+    }
+  }
+
+  return (
+    <>
+      <Card className="p-6 border-red-200">
+        <h3 className="text-base font-semibold text-ink mb-1">危險操作</h3>
+        <p className="text-sm text-muted mb-5 leading-relaxed">
+          刪除此旅程後，所有成員、邀請連結、提案地點、投票與行程表都會被永久移除。此操作無法復原。
+        </p>
+        <button
+          type="button"
+          onClick={() => { setConfirmOpen(true); setDeleteError(null) }}
+          className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-full bg-red-600 text-white border border-transparent hover:opacity-90 transition-opacity"
+        >
+          刪除旅程
+        </button>
+      </Card>
+
+      {confirmOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+          onMouseDown={() => { if (!deleting) setConfirmOpen(false) }}
+        >
+          <div
+            className="bg-surface rounded-xl border border-line shadow-lg w-full max-w-sm mx-4 p-6"
+            onMouseDown={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-semibold text-ink">刪除旅程？</h2>
+              <button
+                type="button"
+                onClick={() => setConfirmOpen(false)}
+                disabled={deleting}
+                className="text-lg leading-none text-muted hover:text-ink transition-colors disabled:opacity-50"
+                aria-label="關閉"
+              >
+                ✕
+              </button>
+            </div>
+            <p className="text-sm text-muted mb-1 leading-relaxed">
+              你即將刪除「<span className="font-medium text-ink">{tripTitle}</span>」。
+            </p>
+            <p className="text-sm text-muted mb-5 leading-relaxed">
+              刪除後，所有成員、邀請連結、提案地點、投票與行程表都會永久移除。此操作無法復原。
+            </p>
+            {deleteError && (
+              <p className="text-sm text-red-600 rounded-lg bg-red-50 px-4 py-2.5 border border-red-200 mb-4">
+                {deleteError}
+              </p>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setConfirmOpen(false)} disabled={deleting}>
+                取消
+              </Button>
+              <Button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="!bg-red-600 !border-red-600 hover:!opacity-90"
+              >
+                {deleting ? '刪除中…' : '刪除旅程'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
 export default function TripSettingsPage() {
   const { tripId } = useParams<{ tripId: string }>()
   const { trip, tripLoading, tripError, refreshTrip } = useOutletContext<WorkspaceOutletContext>()
@@ -172,6 +262,8 @@ export default function TripSettingsPage() {
     return <ErrorState title="無法載入設定" message={tripError ?? undefined} className="py-24" />
   }
 
+  const isOwner = trip.current_user_role === 'owner'
+
   return (
     <div className="p-6 max-w-3xl">
       {/* Page title */}
@@ -180,7 +272,13 @@ export default function TripSettingsPage() {
         <p className="text-sm text-muted mt-1">修改旅程的基本資訊。</p>
       </div>
 
-      <SettingsForm key={trip.trip_id} trip={trip} tripId={tripId!} refreshTrip={refreshTrip} />
+      <div className="flex flex-col gap-6">
+        <SettingsForm key={trip.trip_id} trip={trip} tripId={tripId!} refreshTrip={refreshTrip} />
+
+        {isOwner && (
+          <DeleteTripSection tripId={tripId!} tripTitle={trip.title} />
+        )}
+      </div>
     </div>
   )
 }

@@ -6,6 +6,7 @@ import pytest
 from common.errors import ForbiddenError, NotFoundError, ValidationError
 from common.repositories.trip_repository import (
     create_trip,
+    delete_trip,
     get_trip_detail,
     list_members,
     list_trips,
@@ -176,6 +177,68 @@ class TestUpdateTrip:
         conn = _conn_with_cursors(cur1)
         with pytest.raises(ValidationError):
             update_trip(conn, TRIP_ID, USER_ID, {"start_date": "2025-12-31"})
+
+
+# ---------------------------------------------------------------------------
+# delete_trip
+# ---------------------------------------------------------------------------
+
+class TestDeleteTrip:
+    def _owner_row(self):
+        tid = uuid.UUID(TRIP_ID)
+        uid = uuid.UUID(USER_ID)
+        return (tid, "My Trip", "Tokyo", "2025-09-01", "2025-09-07", "desc", uid, "2025-01-01", "2025-01-01", "owner")
+
+    def test_owner_deletes_trip(self):
+        cur_trip = _cursor(fetchone=self._owner_row())
+        cur_del = _cursor()
+        conn = _conn_with_cursors(cur_trip, cur_del)
+        result = delete_trip(conn, TRIP_ID, USER_ID)
+        assert result["deleted_trip_id"] == TRIP_ID
+        conn.commit.assert_called_once()
+
+    def test_non_owner_cannot_delete(self):
+        row = list(self._owner_row())
+        row[-1] = "member"
+        cur_trip = _cursor(fetchone=tuple(row))
+        conn = _conn_with_cursors(cur_trip)
+        with pytest.raises(ForbiddenError, match="owner"):
+            delete_trip(conn, TRIP_ID, USER_ID)
+
+    def test_non_member_cannot_delete(self):
+        row = list(self._owner_row())
+        row[-1] = None
+        cur_trip = _cursor(fetchone=tuple(row))
+        conn = _conn_with_cursors(cur_trip)
+        with pytest.raises(ForbiddenError):
+            delete_trip(conn, TRIP_ID, USER_ID)
+
+    def test_trip_not_found_raises(self):
+        cur_trip = _cursor(fetchone=None)
+        conn = _conn_with_cursors(cur_trip)
+        with pytest.raises(NotFoundError):
+            delete_trip(conn, TRIP_ID, USER_ID)
+
+    def test_all_related_tables_deleted(self):
+        cur_trip = _cursor(fetchone=self._owner_row())
+        cur_del = _cursor()
+        conn = _conn_with_cursors(cur_trip, cur_del)
+        delete_trip(conn, TRIP_ID, USER_ID)
+        calls = [str(c) for c in cur_del.execute.call_args_list]
+        assert any("candidate_votes" in c for c in calls)
+        assert any("itinerary_items" in c for c in calls)
+        assert any("trip_candidates" in c for c in calls)
+        assert any("trip_invites" in c for c in calls)
+        assert any("trip_members" in c for c in calls)
+        assert any("trips" in c for c in calls)
+
+    def test_users_not_deleted(self):
+        cur_trip = _cursor(fetchone=self._owner_row())
+        cur_del = _cursor()
+        conn = _conn_with_cursors(cur_trip, cur_del)
+        delete_trip(conn, TRIP_ID, USER_ID)
+        calls = [str(c) for c in cur_del.execute.call_args_list]
+        assert not any("DELETE FROM users" in c for c in calls)
 
 
 # ---------------------------------------------------------------------------

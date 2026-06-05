@@ -267,6 +267,35 @@ def update_trip(conn, trip_id: str, user_id: str, patch: dict) -> dict:
 # List members
 # ---------------------------------------------------------------------------
 
+def delete_trip(conn, trip_id: str, user_id: str) -> dict:
+    trip, role = _get_trip_and_membership(conn, trip_id, user_id)
+    if trip is None:
+        raise NotFoundError("Trip not found")
+    if role is None:
+        raise ForbiddenError("You are not a member of this trip")
+    if role != "owner":
+        raise ForbiddenError("Only the trip owner can delete the trip")
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            DELETE FROM candidate_votes
+            WHERE candidate_id IN (
+                SELECT id FROM trip_candidates WHERE trip_id = %s
+            )
+            """,
+            (trip_id,),
+        )
+        cur.execute("DELETE FROM itinerary_items WHERE trip_id = %s", (trip_id,))
+        cur.execute("DELETE FROM trip_candidates WHERE trip_id = %s", (trip_id,))
+        cur.execute("DELETE FROM trip_invites WHERE trip_id = %s", (trip_id,))
+        cur.execute("DELETE FROM trip_members WHERE trip_id = %s", (trip_id,))
+        cur.execute("DELETE FROM trips WHERE id = %s", (trip_id,))
+    conn.commit()
+
+    return {"deleted_trip_id": trip_id}
+
+
 def remove_member(conn, trip_id: str, requester_id: str, target_user_id: str) -> dict:
     trip, role = _get_trip_and_membership(conn, trip_id, requester_id)
     if trip is None:

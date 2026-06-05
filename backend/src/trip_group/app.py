@@ -3,6 +3,7 @@ from common.db import get_connection, get_database_config, close_connection_if_n
 from common.errors import AppError, ErrorCode, ForbiddenError, InternalServerError, NotFoundError, ValidationError
 from common.repositories.trip_repository import (
     create_trip,
+    delete_trip,
     get_trip_detail,
     list_members,
     list_trips,
@@ -49,6 +50,8 @@ def _dispatch(req, conn, user):
         return _list_members(req, conn, user_id)
     if rk == "DELETE /trips/{tripId}/members/{memberUserId}":
         return _remove_member(req, conn, user_id)
+    if rk == "DELETE /trips/{tripId}":
+        return _delete_trip(req, conn, user_id)
 
     raise NotFoundError(f"Route not found: {rk}")
 
@@ -100,6 +103,13 @@ def _list_members(req, conn, user_id):
     validate_uuid_string(trip_id, "tripId")
     members = list_members(conn, trip_id, user_id)
     return {"members": members}, 200
+
+
+def _delete_trip(req, conn, user_id):
+    trip_id = req.path_parameters.get("tripId", "")
+    validate_uuid_string(trip_id, "tripId")
+    result = delete_trip(conn, trip_id, user_id)
+    return result, 200
 
 
 def _remove_member(req, conn, user_id):
