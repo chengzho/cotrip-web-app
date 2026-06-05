@@ -8,9 +8,12 @@ export default function PublicHeader() {
   return (
     <header className="sticky top-0 z-30 bg-surface/90 backdrop-blur-sm border-b border-line">
       <div className="max-w-5xl mx-auto px-5 h-14 flex items-center justify-between">
-        <span className="font-display text-lg font-semibold tracking-tight text-ink">
+        <Link
+          to="/"
+          className="font-display text-lg font-semibold tracking-tight text-ink hover:opacity-70 transition-opacity"
+        >
           CoTrip
-        </span>
+        </Link>
         {isAuthenticated ? (
           <Link
             to="/trips"

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import NicknameModal from '../profile/NicknameModal'
 
@@ -36,9 +37,12 @@ export default function AppHeader({ className = '' }: AppHeaderProps) {
         ].join(' ')}
       >
         <div className="max-w-5xl mx-auto px-5 h-14 flex items-center justify-between">
-          <span className="font-display text-lg font-semibold tracking-tight text-ink">
+          <Link
+            to="/trips"
+            className="font-display text-lg font-semibold tracking-tight text-ink hover:opacity-70 transition-opacity"
+          >
             CoTrip
-          </span>
+          </Link>
           <div className="flex items-center gap-3">
             {user && (
               <span className="text-sm text-muted hidden sm:block">

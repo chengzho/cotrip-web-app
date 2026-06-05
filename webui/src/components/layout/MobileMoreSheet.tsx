@@ -34,6 +34,16 @@ export default function MobileMoreSheet({ open, onClose }: MobileMoreSheetProps)
           </button>
         </div>
         <ul className="p-3">
+          <li>
+            <Link
+              to="/trips"
+              onClick={onClose}
+              className="block px-4 py-3 rounded-lg text-sm font-medium text-ink hover:bg-brand-soft transition-colors"
+            >
+              我的旅程
+            </Link>
+          </li>
+          <li className="my-1 mx-1 border-t border-line" aria-hidden="true" />
           {[
             { label: '成員', to: `/trips/${tripId}/members` },
             { label: '設定', to: `/trips/${tripId}/settings` },

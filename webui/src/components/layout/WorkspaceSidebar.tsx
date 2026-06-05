@@ -1,4 +1,4 @@
-import { NavLink, useParams } from 'react-router-dom'
+import { Link, NavLink, useParams } from 'react-router-dom'
 
 const navItems = [
   { label: '總覽', sub: '' },
@@ -15,11 +15,23 @@ export default function WorkspaceSidebar() {
   return (
     <nav className="w-52 shrink-0 flex flex-col bg-surface border-r border-line">
       <div className="px-5 py-4 border-b border-line">
-        <span className="font-display text-base font-semibold tracking-tight text-ink">
+        <Link
+          to="/trips"
+          className="font-display text-base font-semibold tracking-tight text-ink hover:opacity-70 transition-opacity"
+        >
           CoTrip
-        </span>
+        </Link>
       </div>
       <ul className="px-3 py-3 flex flex-col gap-1">
+        <li>
+          <Link
+            to="/trips"
+            className="block px-3 py-2.5 rounded-lg text-base text-muted hover:bg-brand-soft hover:text-ink transition-colors"
+          >
+            我的旅程
+          </Link>
+        </li>
+        <li className="my-1 border-t border-line" aria-hidden="true" />
         {navItems.map(({ label, sub }) => (
           <li key={sub}>
             <NavLink

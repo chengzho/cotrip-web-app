@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Outlet, useParams } from 'react-router-dom'
+import { Link, Outlet, useParams } from 'react-router-dom'
 import WorkspaceSidebar from './WorkspaceSidebar'
 import TripWorkspaceTopBar from './TripWorkspaceTopBar'
 import MobileWorkspaceHeader from './MobileWorkspaceHeader'
 import MobileBottomNav from './MobileBottomNav'
 import MobileMoreSheet from './MobileMoreSheet'
+import AppHeader from './AppHeader'
 import LoadingState from '../common/LoadingState'
-import ErrorState from '../common/ErrorState'
 import { getTrip, ApiError } from '../../api/index'
 import type { TripDetail } from '../../types/trip'
 
@@ -50,6 +50,40 @@ export default function TripWorkspaceLayout() {
     }
   }, [tripId])
 
+  // Standalone fallback — no workspace chrome when the trip is inaccessible
+  if (!tripLoading && tripError) {
+    return (
+      <div className="min-h-svh bg-background flex flex-col">
+        <AppHeader />
+        <main className="flex-1 flex items-center justify-center px-5 py-16">
+          <div className="w-full max-w-sm text-center">
+            <h1 className="font-display text-xl font-semibold text-ink mb-3">
+              無法載入旅程
+            </h1>
+            <p className="text-sm text-muted mb-8 leading-relaxed">
+              你沒有權限查看此旅程，或此旅程已不存在。<br />
+              你可能已不在這趟旅程中。
+            </p>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <Link
+                to="/trips"
+                className="inline-flex items-center justify-center px-5 py-2 text-sm font-medium rounded-full bg-brand text-brand-fg border border-transparent hover:opacity-90 transition-opacity"
+              >
+                回到我的旅程
+              </Link>
+              <Link
+                to="/trips/new"
+                className="inline-flex items-center justify-center px-5 py-2 text-sm font-medium rounded-full bg-transparent text-ink border border-line hover:bg-brand-soft transition-colors"
+              >
+                建立新旅程
+              </Link>
+            </div>
+          </div>
+        </main>
+      </div>
+    )
+  }
+
   const outletContext: WorkspaceOutletContext = { trip, tripLoading, tripError, refreshTrip }
 
   return (
@@ -75,8 +109,6 @@ export default function TripWorkspaceLayout() {
         <main className="flex-1 overflow-y-auto bg-surface-soft">
           {tripLoading ? (
             <LoadingState message="載入旅程中…" className="py-24" />
-          ) : tripError ? (
-            <ErrorState title="無法載入旅程" message={tripError} className="py-24" />
           ) : (
             <Outlet context={outletContext} />
           )}
