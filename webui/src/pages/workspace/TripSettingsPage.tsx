@@ -185,19 +185,19 @@ function DeleteTripSection({ tripId, tripTitle }: DeleteTripSectionProps) {
 
   return (
     <>
-      <Card className="p-6 border-red-200">
-        <h3 className="text-base font-semibold text-ink mb-1">危險操作</h3>
+      <div className="rounded-xl border border-red-300 bg-red-50 p-6">
+        <h3 className="text-base font-semibold text-red-700 mb-2">危險操作</h3>
         <p className="text-sm text-muted mb-5 leading-relaxed">
           刪除此旅程後，所有成員、邀請連結、提案地點、投票與行程表都會被永久移除。此操作無法復原。
         </p>
         <button
           type="button"
           onClick={() => { setConfirmOpen(true); setDeleteError(null) }}
-          className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-full bg-red-600 text-white border border-transparent hover:opacity-90 transition-opacity"
+          className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-full bg-red-600 text-white border border-transparent hover:bg-red-700 transition-colors"
         >
           刪除旅程
         </button>
-      </Card>
+      </div>
 
       {confirmOpen && (
         <div
@@ -272,7 +272,7 @@ export default function TripSettingsPage() {
         <p className="text-sm text-muted mt-1">修改旅程的基本資訊。</p>
       </div>
 
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-8">
         <SettingsForm key={trip.trip_id} trip={trip} tripId={tripId!} refreshTrip={refreshTrip} />
 
         {isOwner && (
