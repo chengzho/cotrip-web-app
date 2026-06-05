@@ -142,6 +142,57 @@ class TestTripGroupHandler:
         data = json.loads(resp["body"])
         assert len(data["data"]["members"]) == 1
 
+    def test_remove_member_returns_200(self, mock_user, mock_cfg, mock_conn, mock_close):
+        mock_user.return_value = _USER
+        target_id = str(uuid.uuid4())
+        result = {"removed_member_user_id": target_id, "trip_id": TRIP_ID}
+        with patch("trip_group.app.remove_member", return_value=result):
+            event = _event(
+                "DELETE", f"/trips/{TRIP_ID}/members/{target_id}",
+                "DELETE /trips/{tripId}/members/{memberUserId}",
+                path_params={"tripId": TRIP_ID, "memberUserId": target_id},
+            )
+            resp = lambda_handler(event, {})
+        assert resp["statusCode"] == 200
+        data = json.loads(resp["body"])
+        assert data["data"]["removed_member_user_id"] == target_id
+
+    def test_remove_member_forbidden_returns_403(self, mock_user, mock_cfg, mock_conn, mock_close):
+        mock_user.return_value = _USER
+        target_id = str(uuid.uuid4())
+        with patch("trip_group.app.remove_member",
+                   side_effect=__import__("common.errors", fromlist=["ForbiddenError"]).ForbiddenError("Only the trip owner")):
+            event = _event(
+                "DELETE", f"/trips/{TRIP_ID}/members/{target_id}",
+                "DELETE /trips/{tripId}/members/{memberUserId}",
+                path_params={"tripId": TRIP_ID, "memberUserId": target_id},
+            )
+            resp = lambda_handler(event, {})
+        assert resp["statusCode"] == 403
+
+    def test_remove_member_not_found_returns_404(self, mock_user, mock_cfg, mock_conn, mock_close):
+        mock_user.return_value = _USER
+        target_id = str(uuid.uuid4())
+        with patch("trip_group.app.remove_member",
+                   side_effect=__import__("common.errors", fromlist=["NotFoundError"]).NotFoundError("Member not found")):
+            event = _event(
+                "DELETE", f"/trips/{TRIP_ID}/members/{target_id}",
+                "DELETE /trips/{tripId}/members/{memberUserId}",
+                path_params={"tripId": TRIP_ID, "memberUserId": target_id},
+            )
+            resp = lambda_handler(event, {})
+        assert resp["statusCode"] == 404
+
+    def test_remove_member_invalid_uuid_returns_400(self, mock_user, mock_cfg, mock_conn, mock_close):
+        mock_user.return_value = _USER
+        event = _event(
+            "DELETE", f"/trips/{TRIP_ID}/members/not-a-uuid",
+            "DELETE /trips/{tripId}/members/{memberUserId}",
+            path_params={"tripId": TRIP_ID, "memberUserId": "not-a-uuid"},
+        )
+        resp = lambda_handler(event, {})
+        assert resp["statusCode"] == 400
+
     def test_unknown_route_returns_404(self, mock_user, mock_cfg, mock_conn, mock_close):
         mock_user.return_value = _USER
         event = _event("DELETE", "/trips", "DELETE /trips")

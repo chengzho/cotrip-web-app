@@ -144,6 +144,12 @@ Resources:
             ApiId: !Ref CoTripHttpApi
             Method: GET
             Path: /trips/{tripId}/members
+        RemoveMember:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref CoTripHttpApi
+            Method: DELETE
+            Path: /trips/{tripId}/members/{memberUserId}
 
   # ---------------------------------------------------------------------------
   # Invite management

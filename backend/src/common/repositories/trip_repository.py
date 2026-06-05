@@ -267,6 +267,50 @@ def update_trip(conn, trip_id: str, user_id: str, patch: dict) -> dict:
 # List members
 # ---------------------------------------------------------------------------
 
+def remove_member(conn, trip_id: str, requester_id: str, target_user_id: str) -> dict:
+    trip, role = _get_trip_and_membership(conn, trip_id, requester_id)
+    if trip is None:
+        raise NotFoundError("Trip not found")
+    if role is None:
+        raise ForbiddenError("You are not a member of this trip")
+    if role != "owner":
+        raise ForbiddenError("Only the trip owner can remove members")
+    if target_user_id == requester_id:
+        raise ForbiddenError("Owner cannot remove themselves from the trip")
+
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT role FROM trip_members WHERE trip_id = %s AND user_id = %s",
+            (trip_id, target_user_id),
+        )
+        row = cur.fetchone()
+        if row is None:
+            raise NotFoundError("Member not found in this trip")
+        if row[0] == "owner":
+            raise ForbiddenError("Cannot remove the trip owner")
+
+        cur.execute(
+            """
+            DELETE FROM candidate_votes
+            WHERE user_id = %s
+              AND candidate_id IN (
+                SELECT id FROM trip_candidates WHERE trip_id = %s
+              )
+            """,
+            (target_user_id, trip_id),
+        )
+        cur.execute(
+            "DELETE FROM trip_members WHERE trip_id = %s AND user_id = %s",
+            (trip_id, target_user_id),
+        )
+    conn.commit()
+
+    return {
+        "removed_member_user_id": target_user_id,
+        "trip_id": trip_id,
+    }
+
+
 def list_members(conn, trip_id: str, user_id: str) -> list:
     with conn.cursor() as cur:
         cur.execute("SELECT 1 FROM trips WHERE id = %s", (trip_id,))

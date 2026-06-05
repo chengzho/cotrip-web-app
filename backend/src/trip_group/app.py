@@ -6,6 +6,7 @@ from common.repositories.trip_repository import (
     get_trip_detail,
     list_members,
     list_trips,
+    remove_member,
     update_trip,
 )
 from common.repositories.user_repository import resolve_or_create_user
@@ -46,6 +47,8 @@ def _dispatch(req, conn, user):
         return _update_trip(req, conn, user_id)
     if rk == "GET /trips/{tripId}/members":
         return _list_members(req, conn, user_id)
+    if rk == "DELETE /trips/{tripId}/members/{memberUserId}":
+        return _remove_member(req, conn, user_id)
 
     raise NotFoundError(f"Route not found: {rk}")
 
@@ -97,3 +100,12 @@ def _list_members(req, conn, user_id):
     validate_uuid_string(trip_id, "tripId")
     members = list_members(conn, trip_id, user_id)
     return {"members": members}, 200
+
+
+def _remove_member(req, conn, user_id):
+    trip_id = req.path_parameters.get("tripId", "")
+    target_user_id = req.path_parameters.get("memberUserId", "")
+    validate_uuid_string(trip_id, "tripId")
+    validate_uuid_string(target_user_id, "memberUserId")
+    result = remove_member(conn, trip_id, user_id, target_user_id)
+    return result, 200

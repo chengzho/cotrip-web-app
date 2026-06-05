@@ -9,6 +9,7 @@ from common.repositories.trip_repository import (
     get_trip_detail,
     list_members,
     list_trips,
+    remove_member,
     update_trip,
 )
 
@@ -175,6 +176,80 @@ class TestUpdateTrip:
         conn = _conn_with_cursors(cur1)
         with pytest.raises(ValidationError):
             update_trip(conn, TRIP_ID, USER_ID, {"start_date": "2025-12-31"})
+
+
+# ---------------------------------------------------------------------------
+# remove_member
+# ---------------------------------------------------------------------------
+
+TARGET_ID = str(uuid.uuid4())
+
+
+class TestRemoveMember:
+    def _owner_membership_row(self):
+        tid = uuid.UUID(TRIP_ID)
+        uid = uuid.UUID(USER_ID)
+        return (tid, "Trip", "Tokyo", "2025-09-01", "2025-09-07", "desc", uid, "2025-01-01", "2025-01-01", "owner")
+
+    def test_owner_removes_normal_member(self):
+        cur_trip = _cursor(fetchone=self._owner_membership_row())
+        cur_target = _cursor(fetchone=("member",))
+        conn = _conn_with_cursors(cur_trip, cur_target)
+        result = remove_member(conn, TRIP_ID, USER_ID, TARGET_ID)
+        assert result["removed_member_user_id"] == TARGET_ID
+        assert result["trip_id"] == TRIP_ID
+        conn.commit.assert_called_once()
+
+    def test_non_owner_cannot_remove(self):
+        membership_row = list(self._owner_membership_row())
+        membership_row[-1] = "member"
+        cur_trip = _cursor(fetchone=tuple(membership_row))
+        conn = _conn_with_cursors(cur_trip)
+        with pytest.raises(ForbiddenError, match="owner"):
+            remove_member(conn, TRIP_ID, USER_ID, TARGET_ID)
+
+    def test_non_member_cannot_remove(self):
+        membership_row = list(self._owner_membership_row())
+        membership_row[-1] = None
+        cur_trip = _cursor(fetchone=tuple(membership_row))
+        conn = _conn_with_cursors(cur_trip)
+        with pytest.raises(ForbiddenError):
+            remove_member(conn, TRIP_ID, USER_ID, TARGET_ID)
+
+    def test_trip_not_found_raises(self):
+        cur_trip = _cursor(fetchone=None)
+        conn = _conn_with_cursors(cur_trip)
+        with pytest.raises(NotFoundError):
+            remove_member(conn, TRIP_ID, USER_ID, TARGET_ID)
+
+    def test_owner_cannot_remove_self(self):
+        cur_trip = _cursor(fetchone=self._owner_membership_row())
+        conn = _conn_with_cursors(cur_trip)
+        with pytest.raises(ForbiddenError, match="themselves"):
+            remove_member(conn, TRIP_ID, USER_ID, USER_ID)
+
+    def test_target_not_in_trip_raises(self):
+        cur_trip = _cursor(fetchone=self._owner_membership_row())
+        cur_target = _cursor(fetchone=None)
+        conn = _conn_with_cursors(cur_trip, cur_target)
+        with pytest.raises(NotFoundError, match="Member not found"):
+            remove_member(conn, TRIP_ID, USER_ID, TARGET_ID)
+
+    def test_cannot_remove_another_owner(self):
+        cur_trip = _cursor(fetchone=self._owner_membership_row())
+        cur_target = _cursor(fetchone=("owner",))
+        conn = _conn_with_cursors(cur_trip, cur_target)
+        with pytest.raises(ForbiddenError, match="owner"):
+            remove_member(conn, TRIP_ID, USER_ID, TARGET_ID)
+
+    def test_votes_and_membership_deleted(self):
+        cur_trip = _cursor(fetchone=self._owner_membership_row())
+        cur_target = _cursor(fetchone=("member",))
+        conn = _conn_with_cursors(cur_trip, cur_target)
+        remove_member(conn, TRIP_ID, USER_ID, TARGET_ID)
+        calls = [str(c) for c in cur_target.execute.call_args_list]
+        assert any("candidate_votes" in c for c in calls)
+        assert any("trip_members" in c for c in calls)
 
 
 # ---------------------------------------------------------------------------

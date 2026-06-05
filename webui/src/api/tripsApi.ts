@@ -24,3 +24,7 @@ export async function listTripMembers(tripId: string): Promise<TripMember[]> {
   const result = await request<{ members: TripMember[] }>({ method: 'GET', path: `/trips/${tripId}/members` });
   return result.members;
 }
+
+export async function removeTripMember(tripId: string, memberUserId: string): Promise<void> {
+  await request({ method: 'DELETE', path: `/trips/${tripId}/members/${memberUserId}` });
+}
