@@ -154,7 +154,7 @@ export default function TripMembersPage() {
         </Card>
 
         {/* Invite panel */}
-        <InvitePanel tripId={tripId!} />
+        <InvitePanel tripId={tripId!} isOwner={isOwner} />
       </div>
 
       {/* Remove member confirmation modal */}

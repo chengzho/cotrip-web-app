@@ -287,3 +287,66 @@ class TestJoinInviteHandler:
         assert resp["statusCode"] == 500
         body = json.loads(resp["body"])
         assert body["error"]["code"] == "INTERNAL_SERVER_ERROR"
+
+
+@patch("invite.app.close_connection_if_needed")
+@patch("invite.app.get_connection")
+@patch("invite.app.get_database_config")
+@patch("invite.app.resolve_or_create_user")
+class TestRevokeInviteHandler:
+    def test_revoke_success_returns_200(self, mock_user, mock_cfg, mock_conn, mock_close):
+        mock_user.return_value = _USER
+        with patch("invite.app.revoke_invite", return_value=None):
+            event = _auth_event(
+                "DELETE",
+                f"/trips/{TRIP_ID}/invites/current",
+                "DELETE /trips/{tripId}/invites/current",
+                path_params={"tripId": TRIP_ID},
+            )
+            resp = lambda_handler(event, {})
+        assert resp["statusCode"] == 200
+        body = json.loads(resp["body"])
+        assert body["success"] is True
+
+    def test_revoke_invalid_trip_id_returns_400(self, mock_user, mock_cfg, mock_conn, mock_close):
+        mock_user.return_value = _USER
+        event = _auth_event(
+            "DELETE",
+            "/trips/not-a-uuid/invites/current",
+            "DELETE /trips/{tripId}/invites/current",
+            path_params={"tripId": "not-a-uuid"},
+        )
+        resp = lambda_handler(event, {})
+        assert resp["statusCode"] == 400
+        body = json.loads(resp["body"])
+        assert body["error"]["code"] == "VALIDATION_ERROR"
+
+    def test_revoke_non_owner_returns_403(self, mock_user, mock_cfg, mock_conn, mock_close):
+        mock_user.return_value = _USER
+        from common.errors import ForbiddenError
+        with patch("invite.app.revoke_invite", side_effect=ForbiddenError("Only the trip owner can revoke invite links")):
+            event = _auth_event(
+                "DELETE",
+                f"/trips/{TRIP_ID}/invites/current",
+                "DELETE /trips/{tripId}/invites/current",
+                path_params={"tripId": TRIP_ID},
+            )
+            resp = lambda_handler(event, {})
+        assert resp["statusCode"] == 403
+        body = json.loads(resp["body"])
+        assert body["error"]["code"] == "FORBIDDEN"
+
+    def test_revoke_no_active_invite_returns_404(self, mock_user, mock_cfg, mock_conn, mock_close):
+        mock_user.return_value = _USER
+        from common.errors import NotFoundError
+        with patch("invite.app.revoke_invite", side_effect=NotFoundError("No active invite found for this trip")):
+            event = _auth_event(
+                "DELETE",
+                f"/trips/{TRIP_ID}/invites/current",
+                "DELETE /trips/{tripId}/invites/current",
+                path_params={"tripId": TRIP_ID},
+            )
+            resp = lambda_handler(event, {})
+        assert resp["statusCode"] == 404
+        body = json.loads(resp["body"])
+        assert body["error"]["code"] == "NOT_FOUND"

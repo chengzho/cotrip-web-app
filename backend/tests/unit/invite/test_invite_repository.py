@@ -13,7 +13,7 @@ from common.errors import (
     InviteUsageLimitReachedError,
     NotFoundError,
 )
-from common.repositories.invite_repository import create_invite, join_invite, preview_invite
+from common.repositories.invite_repository import create_invite, join_invite, preview_invite, revoke_invite
 
 
 TRIP_ID = str(uuid.uuid4())
@@ -267,5 +267,70 @@ class TestJoinInvite:
 
         with pytest.raises(NotFoundError):
             join_invite(conn, "raw-tok", USER_ID)
+
+        conn.commit.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# revoke_invite
+# ---------------------------------------------------------------------------
+
+def _update_cursor(rowcount: int):
+    cur = MagicMock()
+    cur.__enter__ = lambda s: s
+    cur.__exit__ = MagicMock(return_value=False)
+    cur.rowcount = rowcount
+    return cur
+
+
+class TestRevokeInvite:
+    def test_success_owner_commits(self):
+        owner_cur = _cursor(fetchone=("owner",))
+        update_cur = _update_cursor(rowcount=1)
+        conn = MagicMock()
+        conn.cursor.side_effect = [owner_cur, update_cur]
+
+        revoke_invite(conn, TRIP_ID, USER_ID)
+
+        conn.commit.assert_called_once()
+
+    def test_non_owner_member_raises_forbidden(self):
+        member_cur = _cursor(fetchone=("member",))
+        conn = _conn(member_cur)
+
+        with pytest.raises(ForbiddenError, match="Only the trip owner"):
+            revoke_invite(conn, TRIP_ID, USER_ID)
+
+    def test_not_a_member_trip_exists_raises_forbidden(self):
+        no_member_cur = _cursor(fetchone=None)
+        trip_exists_cur = _cursor(fetchone=(1,))
+        conn = _conn(no_member_cur, trip_exists_cur)
+
+        with pytest.raises(ForbiddenError, match="not a member"):
+            revoke_invite(conn, TRIP_ID, USER_ID)
+
+    def test_not_a_member_trip_missing_raises_not_found(self):
+        no_member_cur = _cursor(fetchone=None)
+        no_trip_cur = _cursor(fetchone=None)
+        conn = _conn(no_member_cur, no_trip_cur)
+
+        with pytest.raises(NotFoundError, match="Trip not found"):
+            revoke_invite(conn, TRIP_ID, USER_ID)
+
+    def test_no_active_invite_raises_not_found(self):
+        owner_cur = _cursor(fetchone=("owner",))
+        update_cur = _update_cursor(rowcount=0)
+        conn = MagicMock()
+        conn.cursor.side_effect = [owner_cur, update_cur]
+
+        with pytest.raises(NotFoundError, match="No active invite"):
+            revoke_invite(conn, TRIP_ID, USER_ID)
+
+    def test_commit_not_called_on_forbidden(self):
+        member_cur = _cursor(fetchone=("member",))
+        conn = _conn(member_cur)
+
+        with pytest.raises(ForbiddenError):
+            revoke_invite(conn, TRIP_ID, USER_ID)
 
         conn.commit.assert_not_called()

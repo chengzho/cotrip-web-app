@@ -19,3 +19,7 @@ export async function joinInvite(token: string): Promise<JoinedTrip> {
   const result = await request<{ trip: JoinedTrip }>({ method: 'POST', path: `/invites/${token}/join` });
   return result.trip;
 }
+
+export async function revokeInvite(tripId: string): Promise<void> {
+  await request<Record<string, never>>({ method: 'DELETE', path: `/trips/${tripId}/invites/current` });
+}

@@ -159,9 +159,10 @@ Resources:
 
   # ---------------------------------------------------------------------------
   # Invite management
-  # Routes: POST /trips/{tripId}/invites
-  #         GET  /invites/{inviteToken}           — PUBLIC (no auth required)
-  #         POST /invites/{inviteToken}/join
+  # Routes: POST   /trips/{tripId}/invites
+  #         DELETE /trips/{tripId}/invites/current
+  #         GET    /invites/{inviteToken}           — PUBLIC (no auth required)
+  #         POST   /invites/{inviteToken}/join
   # ---------------------------------------------------------------------------
   InviteFunction:
     Type: AWS::Serverless::Function
@@ -191,6 +192,12 @@ Resources:
             ApiId: !Ref CoTripHttpApi
             Method: POST
             Path: /invites/{inviteToken}/join
+        RevokeInvite:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref CoTripHttpApi
+            Method: DELETE
+            Path: /trips/{tripId}/invites/current
 
   # ---------------------------------------------------------------------------
   # Candidate place management

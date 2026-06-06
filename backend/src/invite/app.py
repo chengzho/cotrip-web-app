@@ -1,7 +1,7 @@
 from common.auth import get_request_id
 from common.db import close_connection_if_needed, get_connection, get_database_config
 from common.errors import AppError, InternalServerError, UnauthorizedError
-from common.repositories.invite_repository import create_invite, join_invite, preview_invite
+from common.repositories.invite_repository import create_invite, join_invite, preview_invite, revoke_invite
 from common.repositories.user_repository import resolve_or_create_user
 from common.request import parse_http_event
 from common.response import error_response, success_response
@@ -39,6 +39,8 @@ def _dispatch_protected(req, conn, user):
         return _create_invite(req, conn, user_id)
     if rk == "POST /invites/{inviteToken}/join":
         return _join_invite(req, conn, user_id)
+    if rk == "DELETE /trips/{tripId}/invites/current":
+        return _revoke_invite(req, conn, user_id)
 
     from common.errors import NotFoundError
     raise NotFoundError(f"Route not found: {rk}")
@@ -86,3 +88,10 @@ def _join_invite(req, conn, user_id):
         raise ValidationError("inviteToken is required")
     result = join_invite(conn, raw_token, user_id)
     return {"trip": result}, 200
+
+
+def _revoke_invite(req, conn, user_id):
+    trip_id = req.path_parameters.get("tripId", "")
+    validate_uuid_string(trip_id, "tripId")
+    revoke_invite(conn, trip_id, user_id)
+    return {}, 200

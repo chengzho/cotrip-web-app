@@ -219,3 +219,37 @@ def join_invite(conn, raw_token: str, user_id: str) -> dict:
         "destination": trip_destination,
         "current_user_role": "member",
     }
+
+
+# ---------------------------------------------------------------------------
+# Revoke invite (owner only)
+# ---------------------------------------------------------------------------
+
+def revoke_invite(conn, trip_id: str, user_id: str) -> None:
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT role FROM trip_members WHERE trip_id = %s AND user_id = %s",
+            (trip_id, user_id),
+        )
+        row = cur.fetchone()
+
+    if row is None:
+        with conn.cursor() as cur:
+            cur.execute("SELECT 1 FROM trips WHERE id = %s", (trip_id,))
+            trip_exists = cur.fetchone() is not None
+        if not trip_exists:
+            raise NotFoundError("Trip not found")
+        raise ForbiddenError("You are not a member of this trip")
+
+    if row[0] != "owner":
+        raise ForbiddenError("Only the trip owner can revoke invite links")
+
+    with conn.cursor() as cur:
+        cur.execute(
+            "UPDATE trip_invites SET revoked_at = NOW() WHERE trip_id = %s AND revoked_at IS NULL",
+            (trip_id,),
+        )
+        if cur.rowcount == 0:
+            raise NotFoundError("No active invite found for this trip")
+
+    conn.commit()
