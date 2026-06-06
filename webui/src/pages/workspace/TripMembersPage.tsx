@@ -24,7 +24,21 @@ export default function TripMembersPage() {
   const [removing, setRemoving] = useState(false)
   const [removeError, setRemoveError] = useState<string | null>(null)
 
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null)
+
   const isOwner = trip?.current_user_role === 'owner'
+
+  useEffect(() => {
+    if (!openMenuId) return
+    function onClose() { setOpenMenuId(null) }
+    function onEscape(e: KeyboardEvent) { if (e.key === 'Escape') setOpenMenuId(null) }
+    document.addEventListener('click', onClose)
+    document.addEventListener('keydown', onEscape)
+    return () => {
+      document.removeEventListener('click', onClose)
+      document.removeEventListener('keydown', onEscape)
+    }
+  }, [openMenuId])
 
   useEffect(() => {
     if (!tripId) return
@@ -64,7 +78,7 @@ export default function TripMembersPage() {
       {/* Two-column on lg: member list (wider) + invite panel (narrower) */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-5">
         {/* Member list */}
-        <Card className="overflow-hidden">
+        <Card>
           <div className="px-5 py-4 border-b border-line">
             <h3 className="text-base font-semibold text-ink">旅程成員</h3>
           </div>
@@ -101,13 +115,37 @@ export default function TripMembersPage() {
                     <Badge variant="warm" className="shrink-0">擁有者</Badge>
                   )}
                   {isOwner && member.role !== 'owner' && (
-                    <button
-                      type="button"
-                      onClick={() => { setConfirmTarget(member); setRemoveError(null) }}
-                      className="shrink-0 text-sm text-muted hover:text-red-600 transition-colors"
-                    >
-                      移除
-                    </button>
+                    <div className="relative shrink-0">
+                      <button
+                        type="button"
+                        aria-label="成員操作"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setOpenMenuId(prev => prev === member.user_id ? null : member.user_id)
+                        }}
+                        className="w-8 h-8 flex items-center justify-center rounded-lg text-muted hover:bg-brand-soft hover:text-ink transition-colors"
+                      >
+                        ···
+                      </button>
+                      {openMenuId === member.user_id && (
+                        <div
+                          className="absolute right-0 top-full mt-1 bg-surface border border-line rounded-lg shadow-sm min-w-[120px] z-10 py-1"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <button
+                            type="button"
+                            className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                            onClick={() => {
+                              setOpenMenuId(null)
+                              setConfirmTarget(member)
+                              setRemoveError(null)
+                            }}
+                          >
+                            移除成員
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
               ))}
