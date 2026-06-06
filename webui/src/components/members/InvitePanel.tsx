@@ -59,10 +59,7 @@ export default function InvitePanel({ tripId }: InvitePanelProps) {
         <div className="flex flex-col gap-4">
           {/* QR Code */}
           <div className="flex flex-col items-center gap-2">
-            <div
-              ref={qrContainerRef}
-              className="rounded-xl border border-line p-3 bg-white inline-flex"
-            >
+            <div ref={qrContainerRef}>
               <QRCodeCanvas
                 value={inviteUrl}
                 size={168}
