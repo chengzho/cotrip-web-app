@@ -58,14 +58,6 @@ export default function MobileMoreSheet({ open, onClose }: MobileMoreSheetProps)
               </Link>
             </li>
           ))}
-          <li>
-            <button
-              onClick={onClose}
-              className="w-full text-left px-4 py-3 rounded-lg text-sm text-ink hover:bg-brand-soft transition-colors"
-            >
-              邀請朋友
-            </button>
-          </li>
         </ul>
       </div>
     </>

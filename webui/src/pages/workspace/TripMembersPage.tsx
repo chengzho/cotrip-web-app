@@ -11,9 +11,6 @@ import { listTripMembers, removeTripMember, ApiError } from '../../api/index'
 import type { WorkspaceOutletContext } from '../../components/layout/TripWorkspaceLayout'
 import type { TripMember } from '../../types/trip'
 
-const ROLE_LABEL: Record<string, string> = { owner: '擁有者', member: '成員' }
-type BadgeVariant = 'warm' | 'neutral'
-const ROLE_BADGE: Record<string, BadgeVariant> = { owner: 'warm', member: 'neutral' }
 
 export default function TripMembersPage() {
   const { tripId } = useParams<{ tripId: string }>()
@@ -100,17 +97,14 @@ export default function TripMembersPage() {
                     </p>
                     <p className="text-sm text-muted mt-0.5 truncate">{member.email}</p>
                   </div>
-                  <Badge
-                    variant={ROLE_BADGE[member.role] ?? 'neutral'}
-                    className="shrink-0"
-                  >
-                    {ROLE_LABEL[member.role] ?? member.role}
-                  </Badge>
+                  {member.role === 'owner' && (
+                    <Badge variant="warm" className="shrink-0">擁有者</Badge>
+                  )}
                   {isOwner && member.role !== 'owner' && (
                     <button
                       type="button"
                       onClick={() => { setConfirmTarget(member); setRemoveError(null) }}
-                      className="shrink-0 text-sm text-muted hover:text-red-600 transition-colors px-2 py-1 rounded-lg hover:bg-red-50"
+                      className="shrink-0 text-sm text-muted hover:text-red-600 transition-colors"
                     >
                       移除
                     </button>
