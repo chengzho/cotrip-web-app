@@ -110,14 +110,16 @@ export default function InvitePanel({ tripId, isOwner }: InvitePanelProps) {
               <p className="text-xs text-muted mb-3 leading-relaxed">
                 停用後，已分享的舊連結與 QR Code 將無法再加入此旅程。
               </p>
-              <button
-                type="button"
-                onClick={handleRevoke}
-                disabled={revoking}
-                className="w-full text-sm text-red-600 hover:text-red-700 hover:underline disabled:opacity-50 disabled:no-underline transition-colors text-left"
-              >
-                {revoking ? '停用中…' : '停用邀請連結'}
-              </button>
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={handleRevoke}
+                  disabled={revoking}
+                  className="text-sm text-red-600 hover:text-red-700 hover:underline disabled:opacity-50 disabled:no-underline transition-colors"
+                >
+                  {revoking ? '停用中…' : '停用邀請連結'}
+                </button>
+              </div>
             </div>
           )}
         </div>
