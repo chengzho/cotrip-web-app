@@ -11,12 +11,12 @@ import type { WorkspaceOutletContext } from '../../components/layout/TripWorkspa
 import type { TripDetail } from '../../types/trip'
 
 const inputClass = [
-  'w-full border border-line rounded-xl px-4 py-3 text-sm text-ink bg-surface',
+  'w-full border border-line rounded-xl px-4 py-3 text-base text-ink bg-surface',
   'focus:outline-none focus:ring-1 focus:ring-ink/20',
   'transition-colors',
 ].join(' ')
 
-const labelClass = 'block text-sm font-medium text-ink mb-1.5'
+const labelClass = 'block text-sm font-medium text-muted mb-1.5'
 
 function formatDate(d: string): string {
   const [y, m, day] = d.split('-')
@@ -24,31 +24,47 @@ function formatDate(d: string): string {
 }
 
 function TripInfoReadOnly({ trip }: { trip: TripDetail }) {
+  const block = 'bg-surface-soft border border-line rounded-lg p-4'
+  const blockLabel = 'text-xs font-medium text-muted mb-1.5'
+  const blockValue = 'text-base font-medium text-ink'
+
   return (
-    <Card shadow className="p-6">
-      <dl className="flex flex-col gap-5">
-        <div>
-          <dt className={labelClass}>旅程名稱</dt>
-          <dd className="text-sm text-ink mt-1">{trip.title}</dd>
+    <div className="flex flex-col gap-4">
+      {/* View-mode notice */}
+      <div className="bg-surface-soft border border-line rounded-xl px-4 py-3.5">
+        <p className="text-sm font-semibold text-ink mb-1">檢視模式</p>
+        <p className="text-sm text-muted leading-relaxed">
+          你目前是旅程成員，可以查看設定，但只有旅程擁有者可以修改旅程資訊。
+        </p>
+      </div>
+
+      {/* Basic info card */}
+      <Card shadow className="p-6">
+        <h3 className="text-base font-semibold text-ink mb-4">基本資訊</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className={block}>
+            <p className={blockLabel}>旅程名稱</p>
+            <p className={blockValue}>{trip.title}</p>
+          </div>
+          <div className={block}>
+            <p className={blockLabel}>目的地</p>
+            <p className={blockValue}>{trip.destination}</p>
+          </div>
+          <div className={`${block} sm:col-span-2`}>
+            <p className={blockLabel}>日期</p>
+            <p className={blockValue}>
+              {formatDate(trip.start_date)} – {formatDate(trip.end_date)}
+            </p>
+          </div>
+          <div className={`${block} sm:col-span-2`}>
+            <p className={blockLabel}>描述</p>
+            <p className={`${blockValue} whitespace-pre-wrap leading-relaxed`}>
+              {trip.description || '—'}
+            </p>
+          </div>
         </div>
-        <div>
-          <dt className={labelClass}>目的地</dt>
-          <dd className="text-sm text-ink mt-1">{trip.destination}</dd>
-        </div>
-        <div>
-          <dt className={labelClass}>日期</dt>
-          <dd className="text-sm text-ink mt-1">
-            {formatDate(trip.start_date)} – {formatDate(trip.end_date)}
-          </dd>
-        </div>
-        <div>
-          <dt className={labelClass}>描述</dt>
-          <dd className="text-sm text-ink mt-1 whitespace-pre-wrap leading-relaxed">
-            {trip.description || '—'}
-          </dd>
-        </div>
-      </dl>
-    </Card>
+      </Card>
+    </div>
   )
 }
 
@@ -303,9 +319,7 @@ export default function TripSettingsPage() {
       <div className="p-6 max-w-3xl">
         <div className="mb-8">
           <h2 className="font-display text-xl font-semibold text-ink">旅程設定</h2>
-          <p className="text-sm text-muted mt-1">
-            你可以查看這趟旅程的基本資訊。只有旅程擁有者可以修改設定。
-          </p>
+          <p className="text-sm text-muted mt-1">查看這趟旅程的基本資訊。</p>
         </div>
         <TripInfoReadOnly trip={trip} />
       </div>
