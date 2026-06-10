@@ -18,6 +18,40 @@ const inputClass = [
 
 const labelClass = 'block text-sm font-medium text-ink mb-1.5'
 
+function formatDate(d: string): string {
+  const [y, m, day] = d.split('-')
+  return `${y}/${parseInt(m)}/${parseInt(day)}`
+}
+
+function TripInfoReadOnly({ trip }: { trip: TripDetail }) {
+  return (
+    <Card shadow className="p-6">
+      <dl className="flex flex-col gap-5">
+        <div>
+          <dt className={labelClass}>旅程名稱</dt>
+          <dd className="text-sm text-ink mt-1">{trip.title}</dd>
+        </div>
+        <div>
+          <dt className={labelClass}>目的地</dt>
+          <dd className="text-sm text-ink mt-1">{trip.destination}</dd>
+        </div>
+        <div>
+          <dt className={labelClass}>日期</dt>
+          <dd className="text-sm text-ink mt-1">
+            {formatDate(trip.start_date)} – {formatDate(trip.end_date)}
+          </dd>
+        </div>
+        <div>
+          <dt className={labelClass}>描述</dt>
+          <dd className="text-sm text-ink mt-1 whitespace-pre-wrap leading-relaxed">
+            {trip.description || '—'}
+          </dd>
+        </div>
+      </dl>
+    </Card>
+  )
+}
+
 interface SettingsFormProps {
   trip: TripDetail;
   tripId: string;
@@ -264,6 +298,20 @@ export default function TripSettingsPage() {
 
   const isOwner = trip.current_user_role === 'owner'
 
+  if (!isOwner) {
+    return (
+      <div className="p-6 max-w-3xl">
+        <div className="mb-8">
+          <h2 className="font-display text-xl font-semibold text-ink">旅程設定</h2>
+          <p className="text-sm text-muted mt-1">
+            你可以查看這趟旅程的基本資訊。只有旅程擁有者可以修改設定。
+          </p>
+        </div>
+        <TripInfoReadOnly trip={trip} />
+      </div>
+    )
+  }
+
   return (
     <div className="p-6 max-w-3xl">
       {/* Page title */}
@@ -274,10 +322,7 @@ export default function TripSettingsPage() {
 
       <div className="flex flex-col gap-8">
         <SettingsForm key={trip.trip_id} trip={trip} tripId={tripId!} refreshTrip={refreshTrip} />
-
-        {isOwner && (
-          <DeleteTripSection tripId={tripId!} tripTitle={trip.title} />
-        )}
+        <DeleteTripSection tripId={tripId!} tripTitle={trip.title} />
       </div>
     </div>
   )
