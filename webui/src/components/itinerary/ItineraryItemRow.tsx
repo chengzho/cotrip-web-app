@@ -43,24 +43,26 @@ export default function ItineraryItemRow({
         </div>
         {note && <p className="text-sm text-muted mt-1">{note}</p>}
       </div>
-      <div className="flex items-center gap-0.5 shrink-0">
-        <button
-          type="button"
-          className="text-sm text-muted hover:text-ink px-2 py-1 rounded-lg hover:bg-brand-soft transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          onClick={onEdit}
-          disabled={!onEdit}
-        >
-          編輯
-        </button>
-        <button
-          type="button"
-          className="text-sm text-muted hover:text-red-600 px-2 py-1 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          onClick={onDelete}
-          disabled={!onDelete}
-        >
-          刪除
-        </button>
-      </div>
+      {(onEdit !== undefined || onDelete !== undefined) && (
+        <div className="flex items-center gap-0.5 shrink-0">
+          <button
+            type="button"
+            className="text-sm text-muted hover:text-ink px-2 py-1 rounded-lg hover:bg-brand-soft transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            onClick={onEdit}
+            disabled={!onEdit}
+          >
+            編輯
+          </button>
+          <button
+            type="button"
+            className="text-sm text-muted hover:text-red-600 px-2 py-1 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            onClick={onDelete}
+            disabled={!onDelete}
+          >
+            刪除
+          </button>
+        </div>
+      )}
     </div>
   )
 }

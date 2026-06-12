@@ -88,7 +88,7 @@ def _item_row():
 class TestGenerateItinerary:
     def test_successful_generation_returns_grouped_response(self):
         conn = _conn(
-            _trip_cur("member"),
+            _trip_cur("owner"),
             _count_cur(0),
             _cursor(fetchall=_candidate_rows()),
             _cursor(),  # INSERT
@@ -101,7 +101,7 @@ class TestGenerateItinerary:
     def test_day_count_computed_correctly(self):
         # _START=Aug 20, _END=Aug 21 → 2 days
         conn = _conn(
-            _trip_cur("member"),
+            _trip_cur("owner"),
             _count_cur(0),
             _cursor(fetchall=_candidate_rows(4, 4)),
             _cursor(),
@@ -112,7 +112,7 @@ class TestGenerateItinerary:
 
     def test_day_date_correct_for_day_one(self):
         conn = _conn(
-            _trip_cur("member"),
+            _trip_cur("owner"),
             _count_cur(0),
             _cursor(fetchall=_candidate_rows(1, 0)),
             _cursor(),
@@ -122,7 +122,7 @@ class TestGenerateItinerary:
 
     def test_category_snapshot_in_generated_items(self):
         conn = _conn(
-            _trip_cur("member"),
+            _trip_cur("owner"),
             _count_cur(0),
             _cursor(fetchall=[(uuid.uuid4(), "attraction", "Temple", "note")]),
             _cursor(),
@@ -133,7 +133,7 @@ class TestGenerateItinerary:
 
     def test_existing_no_overwrite_raises_conflict(self):
         conn = _conn(
-            _trip_cur("member"),
+            _trip_cur("owner"),
             _count_cur(3),
         )
         with pytest.raises(ItineraryAlreadyExistsError):
@@ -143,7 +143,7 @@ class TestGenerateItinerary:
     def test_overwrite_true_deletes_existing_then_inserts(self):
         delete_cur = _cursor()
         conn = _conn(
-            _trip_cur("member"),
+            _trip_cur("owner"),
             _count_cur(2),
             _cursor(fetchall=_candidate_rows()),
             delete_cur,
@@ -158,7 +158,7 @@ class TestGenerateItinerary:
 
     def test_overwrite_true_no_existing_does_not_delete(self):
         conn = _conn(
-            _trip_cur("member"),
+            _trip_cur("owner"),
             _count_cur(0),
             _cursor(fetchall=_candidate_rows()),
             _cursor(),  # INSERT only — no DELETE cursor
@@ -168,7 +168,7 @@ class TestGenerateItinerary:
 
     def test_no_candidates_raises_conflict(self):
         conn = _conn(
-            _trip_cur("member"),
+            _trip_cur("owner"),
             _count_cur(0),
             _cursor(fetchall=[]),
         )
@@ -186,9 +186,14 @@ class TestGenerateItinerary:
         with pytest.raises(ForbiddenError):
             generate_itinerary(conn, TRIP_ID, USER_ID)
 
+    def test_non_owner_member_cannot_generate(self):
+        conn = _conn(_trip_cur("member"))
+        with pytest.raises(ForbiddenError):
+            generate_itinerary(conn, TRIP_ID, USER_ID)
+
     def test_commit_not_called_on_no_candidates(self):
         conn = _conn(
-            _trip_cur("member"),
+            _trip_cur("owner"),
             _count_cur(0),
             _cursor(fetchall=[]),
         )
@@ -275,7 +280,7 @@ class TestUpdateItineraryItem:
         updated = list(_item_row())
         updated[3] = "afternoon"
         conn = _conn(
-            _cursor(fetchone=("member",)),
+            _cursor(fetchone=("owner",)),
             _cursor(fetchone=_item_row()),
             _cursor(fetchone=tuple(updated)),  # UPDATE RETURNING
         )
@@ -286,7 +291,7 @@ class TestUpdateItineraryItem:
 
     def test_item_not_found_raises(self):
         conn = _conn(
-            _cursor(fetchone=("member",)),
+            _cursor(fetchone=("owner",)),
             _cursor(fetchone=None),
         )
         with pytest.raises(NotFoundError, match="Itinerary item not found"):
@@ -297,6 +302,11 @@ class TestUpdateItineraryItem:
         with pytest.raises(ForbiddenError):
             update_itinerary_item(conn, TRIP_ID, ITEM_ID, USER_ID, {"slot": "afternoon"})
 
+    def test_non_owner_member_cannot_update(self):
+        conn = _conn(_cursor(fetchone=("member",)))
+        with pytest.raises(ForbiddenError):
+            update_itinerary_item(conn, TRIP_ID, ITEM_ID, USER_ID, {"slot": "afternoon"})
+
     def test_trip_not_found_raises(self):
         conn = _conn(_cursor(fetchone=None))
         with pytest.raises(NotFoundError, match="Trip not found"):
@@ -304,7 +314,7 @@ class TestUpdateItineraryItem:
 
     def test_category_in_patch_raises_validation_error(self):
         conn = _conn(
-            _cursor(fetchone=("member",)),
+            _cursor(fetchone=("owner",)),
             _cursor(fetchone=_item_row()),
         )
         with pytest.raises(ValidationError, match="category cannot be updated"):
@@ -312,7 +322,7 @@ class TestUpdateItineraryItem:
 
     def test_no_valid_fields_in_patch_raises_validation_error(self):
         conn = _conn(
-            _cursor(fetchone=("member",)),
+            _cursor(fetchone=("owner",)),
             _cursor(fetchone=_item_row()),
         )
         with pytest.raises(ValidationError):
@@ -320,7 +330,7 @@ class TestUpdateItineraryItem:
 
     def test_invalid_slot_raises_validation_error(self):
         conn = _conn(
-            _cursor(fetchone=("member",)),
+            _cursor(fetchone=("owner",)),
             _cursor(fetchone=_item_row()),
         )
         with pytest.raises(ValidationError):
@@ -328,7 +338,7 @@ class TestUpdateItineraryItem:
 
     def test_day_number_zero_raises_validation_error(self):
         conn = _conn(
-            _cursor(fetchone=("member",)),
+            _cursor(fetchone=("owner",)),
             _cursor(fetchone=_item_row()),
         )
         with pytest.raises(ValidationError):
@@ -336,7 +346,7 @@ class TestUpdateItineraryItem:
 
     def test_sort_order_negative_raises_validation_error(self):
         conn = _conn(
-            _cursor(fetchone=("member",)),
+            _cursor(fetchone=("owner",)),
             _cursor(fetchone=_item_row()),
         )
         with pytest.raises(ValidationError):
@@ -344,7 +354,7 @@ class TestUpdateItineraryItem:
 
     def test_empty_title_raises_validation_error(self):
         conn = _conn(
-            _cursor(fetchone=("member",)),
+            _cursor(fetchone=("owner",)),
             _cursor(fetchone=_item_row()),
         )
         with pytest.raises(ValidationError):
@@ -355,7 +365,7 @@ class TestUpdateItineraryItem:
         updated[3] = "afternoon"
         updated[5] = "attraction"  # category stays "attraction"
         conn = _conn(
-            _cursor(fetchone=("member",)),
+            _cursor(fetchone=("owner",)),
             _cursor(fetchone=_item_row()),
             _cursor(fetchone=tuple(updated)),
         )
@@ -366,7 +376,7 @@ class TestUpdateItineraryItem:
         updated = list(_item_row())
         updated[7] = None
         conn = _conn(
-            _cursor(fetchone=("member",)),
+            _cursor(fetchone=("owner",)),
             _cursor(fetchone=_item_row()),
             _cursor(fetchone=tuple(updated)),
         )
@@ -377,7 +387,7 @@ class TestUpdateItineraryItem:
         updated = list(_item_row())
         updated[3] = "evening"
         conn = _conn(
-            _cursor(fetchone=("member",)),
+            _cursor(fetchone=("owner",)),
             _cursor(fetchone=_item_row()),
             _cursor(fetchone=tuple(updated)),
         )
@@ -392,7 +402,7 @@ class TestUpdateItineraryItem:
 class TestDeleteItineraryItem:
     def test_successful_delete_returns_item_id(self):
         conn = _conn(
-            _cursor(fetchone=("member",)),
+            _cursor(fetchone=("owner",)),
             _cursor(fetchone=_item_row()),
             _cursor(),  # DELETE
         )
@@ -402,7 +412,7 @@ class TestDeleteItineraryItem:
 
     def test_item_not_found_raises(self):
         conn = _conn(
-            _cursor(fetchone=("member",)),
+            _cursor(fetchone=("owner",)),
             _cursor(fetchone=None),
         )
         with pytest.raises(NotFoundError, match="Itinerary item not found"):
@@ -414,6 +424,11 @@ class TestDeleteItineraryItem:
         with pytest.raises(ForbiddenError):
             delete_itinerary_item(conn, TRIP_ID, ITEM_ID, USER_ID)
 
+    def test_non_owner_member_cannot_delete(self):
+        conn = _conn(_cursor(fetchone=("member",)))
+        with pytest.raises(ForbiddenError):
+            delete_itinerary_item(conn, TRIP_ID, ITEM_ID, USER_ID)
+
     def test_trip_not_found_raises(self):
         conn = _conn(_cursor(fetchone=None))
         with pytest.raises(NotFoundError, match="Trip not found"):
@@ -422,7 +437,7 @@ class TestDeleteItineraryItem:
     def test_delete_sql_targets_correct_item(self):
         delete_cur = _cursor()
         conn = _conn(
-            _cursor(fetchone=("member",)),
+            _cursor(fetchone=("owner",)),
             _cursor(fetchone=_item_row()),
             delete_cur,
         )

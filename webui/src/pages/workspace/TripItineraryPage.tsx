@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useOutletContext } from 'react-router-dom'
 import Button from '../../components/common/Button'
 import LoadingState from '../../components/common/LoadingState'
 import ErrorState from '../../components/common/ErrorState'
@@ -9,11 +9,14 @@ import ItineraryItemForm from '../../components/itinerary/ItineraryItemForm'
 import { getItinerary, generateItinerary, updateItineraryItem, deleteItineraryItem, ApiError } from '../../api/index'
 import type { Itinerary, UpdateItineraryItemRequest } from '../../types/itinerary'
 import type { ItineraryItem } from '../../components/itinerary/ItineraryItemRow'
+import type { WorkspaceOutletContext } from '../../components/layout/TripWorkspaceLayout'
 
 type EditTarget = { item: ItineraryItem; dayNumber: number } | null
 
 export default function TripItineraryPage() {
   const { tripId } = useParams<{ tripId: string }>()
+  const { trip } = useOutletContext<WorkspaceOutletContext>()
+  const isOwner = trip?.current_user_role === 'owner'
 
   const [itinerary, setItinerary] = useState<Itinerary | null>(null)
   const [loading, setLoading] = useState(true)
@@ -72,17 +75,19 @@ export default function TripItineraryPage() {
       {/* Header row */}
       <div className="flex items-start justify-between gap-4 mb-2">
         <h2 className="font-display text-xl font-semibold text-ink">行程表</h2>
-        <div className="flex items-center gap-2 shrink-0">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => handleGenerate(true)}
-            disabled={generating || days.length === 0}
-          >
-            {generating ? '產生中…' : '重新產生'}
-          </Button>
-          <Button variant="secondary" size="sm" disabled>分享行程表</Button>
-        </div>
+        {isOwner && (
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => handleGenerate(true)}
+              disabled={generating || days.length === 0}
+            >
+              {generating ? '產生中…' : '重新產生'}
+            </Button>
+            <Button variant="secondary" size="sm" disabled>分享行程表</Button>
+          </div>
+        )}
       </div>
 
       {/* Summary — only shown when data is available */}
@@ -92,8 +97,8 @@ export default function TripItineraryPage() {
         </p>
       )}
 
-      {/* Edit form */}
-      {editTarget && (
+      {/* Edit form — owner only */}
+      {isOwner && editTarget && (
         <div className="mb-6">
           <ItineraryItemForm
             item={editTarget.item}
@@ -111,28 +116,42 @@ export default function TripItineraryPage() {
         <ErrorState title="無法載入行程表" message={error} />
       )}
 
+      {/* Empty state */}
       {!loading && !error && days.length === 0 && (
-        <EmptyState
-          title="尚未產生行程表"
-          description="前往投票頁面，為候選地點投票，再回來產生共享行程表。"
-          action={
-            <Button onClick={() => handleGenerate(false)} disabled={generating}>
-              {generating ? '產生中…' : '產生行程表'}
-            </Button>
-          }
-        />
+        isOwner ? (
+          <EmptyState
+            title="尚未產生行程表"
+            description="前往投票頁面，為候選地點投票，再回來產生共享行程表。"
+            action={
+              <Button onClick={() => handleGenerate(false)} disabled={generating}>
+                {generating ? '產生中…' : '產生行程表'}
+              </Button>
+            }
+          />
+        ) : (
+          <EmptyState
+            title="行程表尚未建立"
+            description="旅程擁有者建立行程表後，你就可以在這裡查看完整安排。"
+          />
+        )
       )}
 
+      {/* Itinerary content */}
       {!loading && !error && days.length > 0 && (
         <div className="flex flex-col gap-5">
+          {!isOwner && (
+            <p className="text-sm text-muted leading-relaxed">
+              這份行程表由旅程擁有者管理。你可以透過提名地點與投票參與規劃。
+            </p>
+          )}
           {days.map((day) => (
             <ItineraryDaySection
               key={day.day_number}
               day_number={day.day_number}
               date={day.date}
               items={day.items}
-              onEditItem={(item, dayNumber) => setEditTarget({ item, dayNumber })}
-              onDeleteItem={handleDeleteItem}
+              onEditItem={isOwner ? (item, dayNumber) => setEditTarget({ item, dayNumber }) : undefined}
+              onDeleteItem={isOwner ? handleDeleteItem : undefined}
             />
           ))}
         </div>

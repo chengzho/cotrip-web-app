@@ -166,6 +166,8 @@ def generate_itinerary(
     start_date, end_date, role = _get_trip_with_dates(conn, trip_id, user_id)
     if role is None:
         raise ForbiddenError("You are not a member of this trip")
+    if role != 'owner':
+        raise ForbiddenError("Only trip owners can modify the itinerary")
 
     with conn.cursor() as cur:
         cur.execute(
@@ -288,6 +290,8 @@ def update_itinerary_item(
     role = _get_trip_membership(conn, trip_id, user_id)
     if role is None:
         raise ForbiddenError("You are not a member of this trip")
+    if role != 'owner':
+        raise ForbiddenError("Only trip owners can modify the itinerary")
 
     _get_itinerary_item(conn, trip_id, item_id)
 
@@ -337,6 +341,8 @@ def delete_itinerary_item(conn, trip_id: str, item_id: str, user_id: str) -> str
     role = _get_trip_membership(conn, trip_id, user_id)
     if role is None:
         raise ForbiddenError("You are not a member of this trip")
+    if role != 'owner':
+        raise ForbiddenError("Only trip owners can modify the itinerary")
 
     item = _get_itinerary_item(conn, trip_id, item_id)
 
