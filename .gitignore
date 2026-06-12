@@ -30,3 +30,7 @@ Thumbs.db
 # Editor
 .vscode/
 .idea/
+
+# Local AI agent / skills configuration
+.agents/
+skills-lock.json
