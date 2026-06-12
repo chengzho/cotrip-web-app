@@ -15,13 +15,13 @@ import {
   unvoteCandidate,
   ApiError,
 } from '../../api/index'
+import { CANDIDATE_CATEGORIES, CATEGORY_LABEL } from '../../constants/candidateCategories'
+import type { CandidateCategory } from '../../constants/candidateCategories'
 import type { WorkspaceOutletContext } from '../../components/layout/TripWorkspaceLayout'
 import type { Candidate, CreateCandidateRequest } from '../../types/candidate'
 
-type CategoryFilter = 'attraction' | 'restaurant' | null
+type CategoryFilter = CandidateCategory | null
 type FormTarget = 'create' | Candidate | null
-
-const CATEGORY_LABEL: Record<string, string> = { attraction: '景點', restaurant: '餐廳' }
 
 export default function TripPlacesPage() {
   const { tripId } = useParams<{ tripId: string }>()
@@ -86,17 +86,23 @@ export default function TripPlacesPage() {
     }
   }
 
-  const displayed = activeFilter
-    ? candidates.filter((c) => c.category === activeFilter)
-    : candidates
+  const countByCategory = Object.fromEntries(
+    CANDIDATE_CATEGORIES.map((cat) => [cat, candidates.filter((c) => c.category === cat).length])
+  )
 
-  const attractionCount = candidates.filter((c) => c.category === 'attraction').length
-  const restaurantCount = candidates.filter((c) => c.category === 'restaurant').length
+  // Reset stale filter when selected category becomes empty (e.g. last candidate deleted)
+  const resolvedFilter: CategoryFilter =
+    activeFilter && countByCategory[activeFilter] === 0 ? null : activeFilter
+
+  const displayed = resolvedFilter
+    ? candidates.filter((c) => c.category === resolvedFilter)
+    : candidates
 
   const filterChips: { label: string; value: CategoryFilter; count: number }[] = [
     { label: '全部', value: null, count: candidates.length },
-    { label: CATEGORY_LABEL['attraction'], value: 'attraction', count: attractionCount },
-    { label: CATEGORY_LABEL['restaurant'], value: 'restaurant', count: restaurantCount },
+    ...CANDIDATE_CATEGORIES
+      .filter((cat) => countByCategory[cat] > 0)
+      .map((cat) => ({ label: CATEGORY_LABEL[cat], value: cat as CategoryFilter, count: countByCategory[cat] })),
   ]
 
   return (
@@ -141,7 +147,7 @@ export default function TripPlacesPage() {
               onClick={() => setActiveFilter(value)}
               className={[
                 'inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm transition-colors',
-                activeFilter === value
+                resolvedFilter === value
                   ? 'bg-ink text-brand-fg font-medium'
                   : 'bg-surface border border-line text-muted hover:bg-brand-soft hover:text-ink',
               ].join(' ')}
@@ -168,7 +174,7 @@ export default function TripPlacesPage() {
       )}
 
       {!loading && !error && candidates.length > 0 && displayed.length === 0 && (
-        <EmptyState title={`沒有${activeFilter ? CATEGORY_LABEL[activeFilter] : ''}地點`} />
+        <EmptyState title={`沒有${resolvedFilter ? CATEGORY_LABEL[resolvedFilter] : ''}地點`} />
       )}
 
       {!loading && !error && displayed.length > 0 && (

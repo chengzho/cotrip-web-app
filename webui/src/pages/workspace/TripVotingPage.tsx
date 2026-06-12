@@ -5,12 +5,12 @@ import ErrorState from '../../components/common/ErrorState'
 import EmptyState from '../../components/common/EmptyState'
 import RankingRow from '../../components/voting/RankingRow'
 import { getRankings, voteCandidate, unvoteCandidate, ApiError } from '../../api/index'
+import { CANDIDATE_CATEGORIES, CATEGORY_LABEL } from '../../constants/candidateCategories'
+import type { CandidateCategory } from '../../constants/candidateCategories'
 import type { WorkspaceOutletContext } from '../../components/layout/TripWorkspaceLayout'
 import type { RankingRow as RankingRowType } from '../../types/vote'
 
-type CategoryFilter = 'attraction' | 'restaurant' | null
-
-const CATEGORY_LABEL: Record<string, string> = { attraction: '景點', restaurant: '餐廳' }
+type CategoryFilter = CandidateCategory | null
 
 export default function TripVotingPage() {
   const { tripId } = useParams<{ tripId: string }>()
@@ -48,17 +48,22 @@ export default function TripVotingPage() {
     }
   }
 
-  const displayed = activeFilter
-    ? rankings.filter((r) => r.category === activeFilter)
-    : rankings
+  const countByCategory = Object.fromEntries(
+    CANDIDATE_CATEGORIES.map((cat) => [cat, rankings.filter((r) => r.category === cat).length])
+  )
 
-  const attractionCount = rankings.filter((r) => r.category === 'attraction').length
-  const restaurantCount = rankings.filter((r) => r.category === 'restaurant').length
+  const resolvedFilter: CategoryFilter =
+    activeFilter && countByCategory[activeFilter] === 0 ? null : activeFilter
+
+  const displayed = resolvedFilter
+    ? rankings.filter((r) => r.category === resolvedFilter)
+    : rankings
 
   const filterChips: { label: string; value: CategoryFilter; count: number }[] = [
     { label: '全部', value: null, count: rankings.length },
-    { label: CATEGORY_LABEL['attraction'], value: 'attraction', count: attractionCount },
-    { label: CATEGORY_LABEL['restaurant'], value: 'restaurant', count: restaurantCount },
+    ...CANDIDATE_CATEGORIES
+      .filter((cat) => countByCategory[cat] > 0)
+      .map((cat) => ({ label: CATEGORY_LABEL[cat], value: cat as CategoryFilter, count: countByCategory[cat] })),
   ]
 
   return (
@@ -85,7 +90,7 @@ export default function TripVotingPage() {
               onClick={() => setActiveFilter(value)}
               className={[
                 'inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm transition-colors',
-                activeFilter === value
+                resolvedFilter === value
                   ? 'bg-ink text-brand-fg font-medium'
                   : 'bg-surface border border-line text-muted hover:bg-brand-soft hover:text-ink',
               ].join(' ')}
@@ -112,7 +117,7 @@ export default function TripVotingPage() {
       )}
 
       {!loading && !error && rankings.length > 0 && displayed.length === 0 && (
-        <EmptyState title={`沒有${activeFilter ? CATEGORY_LABEL[activeFilter] : ''}地點`} />
+        <EmptyState title={`沒有${resolvedFilter ? CATEGORY_LABEL[resolvedFilter] : ''}地點`} />
       )}
 
       {!loading && !error && displayed.length > 0 && (

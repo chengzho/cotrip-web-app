@@ -124,6 +124,16 @@ class TestCreateCandidate:
         )
         assert result["address"] == "1-1-2 Oshiage"
 
+    def test_accommodation_category_accepted(self):
+        conn = _conn(_membership_cur("member"), _cursor(fetchone=self._insert_row()))
+        result = create_candidate(conn, TRIP_ID, USER_ID, "Sophie", "accommodation", "Grand Hotel")
+        assert result["candidate_id"] == CANDIDATE_ID
+
+    def test_transport_category_accepted(self):
+        conn = _conn(_membership_cur("member"), _cursor(fetchone=self._insert_row()))
+        result = create_candidate(conn, TRIP_ID, USER_ID, "Sophie", "transport", "Airport Shuttle")
+        assert result["candidate_id"] == CANDIDATE_ID
+
 
 # ---------------------------------------------------------------------------
 # list_candidates
@@ -161,6 +171,22 @@ class TestListCandidates:
         call_args = list_cur.execute.call_args[0]
         assert "tc.category = %s" in call_args[0]
         assert "attraction" in call_args[1]
+
+    def test_transport_filter_passes_to_query(self):
+        list_cur = _cursor(fetchall=[])
+        conn = _conn(_membership_cur("member"), list_cur)
+        list_candidates(conn, TRIP_ID, USER_ID, category="transport")
+        call_args = list_cur.execute.call_args[0]
+        assert "tc.category = %s" in call_args[0]
+        assert "transport" in call_args[1]
+
+    def test_other_filter_passes_to_query(self):
+        list_cur = _cursor(fetchall=[])
+        conn = _conn(_membership_cur("member"), list_cur)
+        list_candidates(conn, TRIP_ID, USER_ID, category="other")
+        call_args = list_cur.execute.call_args[0]
+        assert "tc.category = %s" in call_args[0]
+        assert "other" in call_args[1]
 
     def test_no_category_filter_omits_clause(self):
         list_cur = _cursor(fetchall=[])
@@ -246,6 +272,33 @@ class TestUpdateCandidate:
 
         with pytest.raises(ValidationError):
             update_candidate(conn, TRIP_ID, CANDIDATE_ID, USER_ID, {"category": "hotel"})
+
+    def test_accommodation_category_is_valid(self):
+        membership_cur = _membership_cur("member")
+        candidate_cur = _cursor(fetchone=self._minimal_candidate_row())
+        update_cur = _cursor(fetchone=_enriched_row())
+        conn = _conn(membership_cur, candidate_cur, update_cur)
+
+        result = update_candidate(conn, TRIP_ID, CANDIDATE_ID, USER_ID, {"category": "accommodation"})
+        assert result["candidate_id"] == CANDIDATE_ID
+
+    def test_transport_category_is_valid(self):
+        membership_cur = _membership_cur("member")
+        candidate_cur = _cursor(fetchone=self._minimal_candidate_row())
+        update_cur = _cursor(fetchone=_enriched_row())
+        conn = _conn(membership_cur, candidate_cur, update_cur)
+
+        result = update_candidate(conn, TRIP_ID, CANDIDATE_ID, USER_ID, {"category": "transport"})
+        assert result["candidate_id"] == CANDIDATE_ID
+
+    def test_other_category_is_valid(self):
+        membership_cur = _membership_cur("member")
+        candidate_cur = _cursor(fetchone=self._minimal_candidate_row())
+        update_cur = _cursor(fetchone=_enriched_row())
+        conn = _conn(membership_cur, candidate_cur, update_cur)
+
+        result = update_candidate(conn, TRIP_ID, CANDIDATE_ID, USER_ID, {"category": "other"})
+        assert result["candidate_id"] == CANDIDATE_ID
 
     def test_empty_name_raises_validation_error(self):
         membership_cur = _membership_cur("member")

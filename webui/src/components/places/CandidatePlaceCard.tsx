@@ -1,11 +1,11 @@
 import Badge from '../common/Badge'
 import Card from '../common/Card'
-
-const CATEGORY_LABEL: Record<string, string> = { attraction: '景點', restaurant: '餐廳' }
+import { CATEGORY_LABEL } from '../../constants/candidateCategories'
+import type { CandidateCategory } from '../../constants/candidateCategories'
 
 export interface CandidatePlaceCardProps {
   candidate_id: string;
-  category: string;
+  category: CandidateCategory;
   name: string;
   note: string | null;
   created_by: { display_name: string };

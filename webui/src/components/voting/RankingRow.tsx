@@ -1,11 +1,11 @@
 import Badge from '../common/Badge'
-
-const CATEGORY_LABEL: Record<string, string> = { attraction: '景點', restaurant: '餐廳' }
+import { CATEGORY_LABEL } from '../../constants/candidateCategories'
+import type { CandidateCategory } from '../../constants/candidateCategories'
 
 export interface RankingRowProps {
   rank: number;
   candidate_id: string;
-  category: string;
+  category: CandidateCategory;
   name: string;
   created_by: { display_name: string };
   vote_count: number;

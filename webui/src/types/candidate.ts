@@ -1,7 +1,8 @@
 // Candidate place domain types.
 // Field names match actual backend API response payloads.
 
-export type CandidateCategory = 'attraction' | 'restaurant';
+import type { CandidateCategory } from '../constants/candidateCategories';
+export type { CandidateCategory };
 
 export interface CandidateCreatedBy {
   user_id: string;

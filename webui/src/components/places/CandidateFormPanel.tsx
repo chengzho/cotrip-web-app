@@ -2,7 +2,9 @@ import { useState, type FormEvent } from 'react'
 import Button from '../common/Button'
 import Card from '../common/Card'
 import FormError from '../common/FormError'
-import type { Candidate, CandidateCategory, CreateCandidateRequest } from '../../types/candidate'
+import { CANDIDATE_CATEGORIES, CATEGORY_LABEL } from '../../constants/candidateCategories'
+import type { CandidateCategory } from '../../constants/candidateCategories'
+import type { Candidate, CreateCandidateRequest } from '../../types/candidate'
 
 interface CandidateFormPanelProps {
   initial?: Candidate;
@@ -62,8 +64,9 @@ export default function CandidateFormPanel({ initial, onSave, onCancel }: Candid
             value={category}
             onChange={(e) => setCategory(e.target.value as CandidateCategory)}
           >
-            <option value="attraction">景點</option>
-            <option value="restaurant">餐廳</option>
+            {CANDIDATE_CATEGORIES.map((cat) => (
+              <option key={cat} value={cat}>{CATEGORY_LABEL[cat]}</option>
+            ))}
           </select>
         </div>
         <div>

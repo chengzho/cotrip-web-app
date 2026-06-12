@@ -2,6 +2,7 @@
 // Field names match actual backend API response payloads.
 
 import type { CandidateCreatedBy } from './candidate';
+import type { CandidateCategory } from '../constants/candidateCategories';
 
 // Response data from POST/DELETE /candidates/{candidateId}/votes
 export interface VoteResult {
@@ -15,7 +16,7 @@ export interface RankingRow {
   rank: number;
   candidate_id: string;
   trip_id: string;
-  category: string;
+  category: CandidateCategory;
   name: string;
   note: string | null;
   created_by: CandidateCreatedBy;

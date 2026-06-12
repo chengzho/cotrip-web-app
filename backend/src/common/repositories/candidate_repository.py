@@ -4,7 +4,7 @@ from common.errors import ForbiddenError, NotFoundError, ValidationError
 from common.validation import validate_enum
 
 
-VALID_CATEGORIES = frozenset({"attraction", "restaurant"})
+VALID_CATEGORIES = frozenset({"attraction", "restaurant", "accommodation", "transport", "other"})
 ALLOWED_UPDATE_FIELDS = frozenset({"category", "name", "address", "note", "source_url"})
 
 
