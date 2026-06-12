@@ -137,23 +137,23 @@ export default function TripPlacesPage() {
         </div>
       )}
 
-      {/* Filter chips — only shown when data is loaded */}
+      {/* Tab-style category filter */}
       {!loading && !error && candidates.length > 0 && (
-        <div className="flex items-center gap-2 flex-wrap mb-6">
+        <div className="flex items-center gap-0 border-b border-line mb-6 overflow-x-auto overflow-y-hidden">
           {filterChips.map(({ label, value, count }) => (
             <button
               key={label}
               type="button"
               onClick={() => setActiveFilter(value)}
               className={[
-                'inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm transition-colors',
+                'flex items-center gap-1.5 px-3 py-2.5 text-sm whitespace-nowrap transition-colors border-b-2 -mb-px focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ink',
                 resolvedFilter === value
-                  ? 'bg-ink text-brand-fg font-medium'
-                  : 'bg-surface border border-line text-muted hover:bg-brand-soft hover:text-ink',
+                  ? 'border-ink text-ink font-medium'
+                  : 'border-transparent text-muted hover:text-ink',
               ].join(' ')}
             >
               {label}
-              <span className="text-xs opacity-70">{count}</span>
+              <span className="text-xs opacity-60">{count}</span>
             </button>
           ))}
         </div>

@@ -55,9 +55,22 @@ export default function TripVotingPage() {
   const resolvedFilter: CategoryFilter =
     activeFilter && countByCategory[activeFilter] === 0 ? null : activeFilter
 
-  const displayed = resolvedFilter
+  // Category sections sorted by votes desc within each group (for all-categories grouped view)
+  const grouped = CANDIDATE_CATEGORIES
+    .map((cat) => ({
+      category: cat,
+      label: CATEGORY_LABEL[cat],
+      items: rankings
+        .filter((r) => r.category === cat)
+        .sort((a, b) => b.vote_count - a.vote_count || a.candidate_id.localeCompare(b.candidate_id)),
+    }))
+    .filter((g) => g.items.length > 0)
+
+  // Flat list for single-category filter view, sorted by votes desc
+  const displayed = (resolvedFilter
     ? rankings.filter((r) => r.category === resolvedFilter)
     : rankings
+  ).slice().sort((a, b) => b.vote_count - a.vote_count || a.candidate_id.localeCompare(b.candidate_id))
 
   const filterChips: { label: string; value: CategoryFilter; count: number }[] = [
     { label: '全部', value: null, count: rankings.length },
@@ -69,10 +82,14 @@ export default function TripVotingPage() {
   return (
     <div className="p-6 max-w-5xl">
       {/* Header */}
-      <div className="mb-6">
+      <div className="mb-5">
         <h2 className="font-display text-xl font-semibold text-ink">群組投票</h2>
         {!loading && !error && (
-          <p className="text-sm text-muted mt-1">{rankings.length} 個地點 · 依票數排序</p>
+          <p className="text-sm text-muted mt-1">
+            {resolvedFilter
+              ? `${displayed.length} 個地點 · ${CATEGORY_LABEL[resolvedFilter]}`
+              : `${rankings.length} 個地點 · 依類型分組`}
+          </p>
         )}
       </div>
 
@@ -80,35 +97,37 @@ export default function TripVotingPage() {
         <p className="text-sm text-red-600 mb-4">{voteError}</p>
       )}
 
-      {/* Filter chips */}
+      {/* Tab-style category filter */}
       {!loading && !error && rankings.length > 0 && (
-        <div className="flex items-center gap-2 flex-wrap mb-6">
+        <div className="flex items-center gap-0 border-b border-line mb-6 overflow-x-auto overflow-y-hidden">
           {filterChips.map(({ label, value, count }) => (
             <button
               key={label}
               type="button"
               onClick={() => setActiveFilter(value)}
               className={[
-                'inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm transition-colors',
+                'flex items-center gap-1.5 px-3 py-2.5 text-sm whitespace-nowrap transition-colors border-b-2 -mb-px focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ink',
                 resolvedFilter === value
-                  ? 'bg-ink text-brand-fg font-medium'
-                  : 'bg-surface border border-line text-muted hover:bg-brand-soft hover:text-ink',
+                  ? 'border-ink text-ink font-medium'
+                  : 'border-transparent text-muted hover:text-ink',
               ].join(' ')}
             >
               {label}
-              <span className="text-xs opacity-70">{count}</span>
+              {value !== null && <span className="text-xs opacity-60">{count}</span>}
             </button>
           ))}
         </div>
       )}
 
-      {/* States */}
+      {/* Loading */}
       {loading && <LoadingState message="載入投票資料中…" />}
 
+      {/* Error */}
       {!loading && error && (
         <ErrorState title="無法載入投票資料" message={error} />
       )}
 
+      {/* No candidates at all */}
       {!loading && !error && rankings.length === 0 && (
         <EmptyState
           title="尚無投票資料"
@@ -116,16 +135,48 @@ export default function TripVotingPage() {
         />
       )}
 
-      {!loading && !error && rankings.length > 0 && displayed.length === 0 && (
-        <EmptyState title={`沒有${resolvedFilter ? CATEGORY_LABEL[resolvedFilter] : ''}地點`} />
+      {/* Filter active but category empty (safety net) */}
+      {!loading && !error && resolvedFilter !== null && displayed.length === 0 && (
+        <EmptyState title={`沒有${CATEGORY_LABEL[resolvedFilter]}地點`} />
       )}
 
-      {!loading && !error && displayed.length > 0 && (
+      {/* Grouped all-categories view (default) */}
+      {!loading && !error && resolvedFilter === null && grouped.length > 0 && (
         <div className="flex flex-col gap-3">
-          {displayed.map((row) => (
+          {grouped.map(({ category, label, items }) => (
+            <div key={category} className="rounded-xl border border-line bg-surface overflow-hidden">
+              <div className="flex items-center gap-2 px-4 py-2.5 bg-background border-b border-line">
+                <h3 className="text-sm font-semibold text-ink">{label}</h3>
+                <span className="text-xs text-muted">{items.length}</span>
+              </div>
+              <div className="divide-y divide-line">
+                {items.map((row, idx) => (
+                  <RankingRow
+                    key={row.candidate_id}
+                    {...row}
+                    rank={idx + 1}
+                    showCategory={false}
+                    variant="list"
+                    onVote={() => handleVote(row.candidate_id, row.current_user_voted)}
+                    voting={votingIds.has(row.candidate_id)}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Flat filtered view (single category selected) */}
+      {!loading && !error && resolvedFilter !== null && displayed.length > 0 && (
+        <div className="rounded-xl border border-line bg-surface overflow-hidden divide-y divide-line">
+          {displayed.map((row, idx) => (
             <RankingRow
               key={row.candidate_id}
               {...row}
+              rank={idx + 1}
+              showCategory={false}
+              variant="list"
               onVote={() => handleVote(row.candidate_id, row.current_user_voted)}
               voting={votingIds.has(row.candidate_id)}
             />

@@ -1,4 +1,3 @@
-import Badge from '../common/Badge'
 import { CATEGORY_LABEL } from '../../constants/candidateCategories'
 import type { CandidateCategory } from '../../constants/candidateCategories'
 
@@ -10,6 +9,8 @@ export interface RankingRowProps {
   created_by: { display_name: string };
   vote_count: number;
   current_user_voted: boolean;
+  showCategory?: boolean;
+  variant?: 'card' | 'list';
   onVote?: () => void;
   voting?: boolean;
 }
@@ -21,11 +22,17 @@ export default function RankingRow({
   created_by,
   vote_count,
   current_user_voted,
+  showCategory = true,
+  variant = 'card',
   onVote,
   voting = false,
 }: RankingRowProps) {
+  const wrapperClass = variant === 'list'
+    ? 'flex items-center gap-4 px-4 py-3'
+    : 'flex items-center gap-4 px-5 py-4 bg-surface rounded-xl border border-line'
+
   return (
-    <div className="flex items-center gap-4 px-5 py-4 bg-surface rounded-xl border border-line">
+    <div className={wrapperClass}>
       <span
         className={[
           'text-sm font-bold w-6 text-center shrink-0',
@@ -36,11 +43,11 @@ export default function RankingRow({
       </span>
 
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap mb-1">
-          <span className="text-base font-semibold text-ink">{name}</span>
-          <Badge variant="neutral">{CATEGORY_LABEL[category] ?? category}</Badge>
-        </div>
-        <p className="text-sm text-muted">由 {created_by.display_name} 提案</p>
+        <p className="text-base font-semibold text-ink mb-0.5 truncate">{name}</p>
+        <p className="text-xs text-muted">
+          {showCategory && `${CATEGORY_LABEL[category] ?? category} · `}
+          由 {created_by.display_name} 提案
+        </p>
       </div>
 
       <div className="flex items-center gap-3 shrink-0">
@@ -51,10 +58,10 @@ export default function RankingRow({
         <button
           type="button"
           className={[
-            'inline-flex items-center justify-center px-4 py-1.5 text-sm font-medium rounded-full transition-colors disabled:opacity-50',
+            'inline-flex items-center justify-center px-3 py-1.5 text-sm font-medium rounded-md transition-colors disabled:opacity-50',
             current_user_voted
               ? 'bg-ink text-brand-fg'
-              : 'border border-line text-ink hover:bg-brand-soft',
+              : 'bg-surface-soft border border-line text-ink hover:bg-brand-soft',
           ].join(' ')}
           onClick={onVote}
           disabled={!onVote || voting}

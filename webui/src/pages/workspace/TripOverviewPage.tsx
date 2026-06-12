@@ -1,14 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Link, useOutletContext, useParams } from 'react-router-dom'
-import Badge from '../../components/common/Badge'
 import Card from '../../components/common/Card'
 import LoadingState from '../../components/common/LoadingState'
 import SummaryStatCard from '../../components/trip/SummaryStatCard'
 import { getRankings, ApiError } from '../../api/index'
+import { CATEGORY_LABEL } from '../../constants/candidateCategories'
 import type { WorkspaceOutletContext } from '../../components/layout/TripWorkspaceLayout'
 import type { RankingRow } from '../../types/vote'
-
-const CATEGORY_LABEL: Record<string, string> = { attraction: '景點', restaurant: '餐廳' }
 
 function calcDayCount(startDate: string, endDate: string): number {
   const start = new Date(startDate)
@@ -94,9 +92,9 @@ export default function TripOverviewPage() {
                     <span className="flex-1 text-sm font-medium text-ink min-w-0 truncate">
                       {row.name}
                     </span>
-                    <Badge variant="neutral">
+                    <span className="text-xs text-muted shrink-0">
                       {CATEGORY_LABEL[row.category] ?? row.category}
-                    </Badge>
+                    </span>
                     <div className="flex items-center gap-1 shrink-0">
                       <span className="text-sm font-semibold text-ink">{row.vote_count}</span>
                       <span className="text-sm text-muted">票</span>
