@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useState, useEffect, type FormEvent } from 'react'
 import Button from '../common/Button'
 import Card from '../common/Card'
 import FormError from '../common/FormError'
@@ -10,6 +10,7 @@ interface ItineraryItemFormProps {
   dayNumber: number;
   onSave: (data: UpdateItineraryItemRequest) => Promise<void>;
   onCancel: () => void;
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
 const SLOT_OPTIONS: { value: ItinerarySlot; label: string }[] = [
@@ -28,14 +29,33 @@ const inputClass = [
 
 const labelClass = 'block text-sm font-medium text-ink mb-1.5'
 
-export default function ItineraryItemForm({ item, dayNumber, onSave, onCancel }: ItineraryItemFormProps) {
-  const [slot, setSlot] = useState<ItinerarySlot>(item.slot as ItinerarySlot)
-  const [title, setTitle] = useState(item.title)
-  const [note, setNote] = useState(item.note ?? '')
-  const [day, setDay] = useState(String(dayNumber))
-  const [sortOrder, setSortOrder] = useState(String(item.sort_order))
+export default function ItineraryItemForm({ item, dayNumber, onSave, onCancel, onDirtyChange }: ItineraryItemFormProps) {
+  // Captured once at mount; stable across re-renders because parent uses key={item_id}
+  const [initial] = useState({
+    slot: item.slot as ItinerarySlot,
+    title: item.title,
+    note: item.note ?? '',
+    day: String(dayNumber),
+    sortOrder: String(item.sort_order),
+  })
+
+  const [slot, setSlot] = useState<ItinerarySlot>(initial.slot)
+  const [title, setTitle] = useState(initial.title)
+  const [note, setNote] = useState(initial.note)
+  const [day, setDay] = useState(initial.day)
+  const [sortOrder, setSortOrder] = useState(initial.sortOrder)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const dirty =
+      slot !== initial.slot ||
+      title !== initial.title ||
+      note !== initial.note ||
+      day !== initial.day ||
+      sortOrder !== initial.sortOrder
+    onDirtyChange?.(dirty)
+  }, [slot, title, note, day, sortOrder, initial, onDirtyChange])
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()

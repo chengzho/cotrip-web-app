@@ -23,6 +23,7 @@ export default function TripItineraryPage() {
   const [error, setError] = useState<string | null>(null)
   const [generating, setGenerating] = useState(false)
   const [editTarget, setEditTarget] = useState<EditTarget>(null)
+  const [isEditDirty, setIsEditDirty] = useState(false)
 
   useEffect(() => {
     if (!tripId) return
@@ -48,11 +49,20 @@ export default function TripItineraryPage() {
     }
   }
 
+  function requestEditTarget(item: ItineraryItem, dayNumber: number) {
+    if (editTarget && isEditDirty) {
+      if (!window.confirm('目前的變更尚未儲存，確定要放棄並編輯另一個項目嗎？')) return
+    }
+    setIsEditDirty(false)
+    setEditTarget({ item, dayNumber })
+  }
+
   async function handleEditItem(data: UpdateItineraryItemRequest) {
     if (!editTarget) return
     await updateItineraryItem(tripId!, editTarget.item.item_id, data)
     const refreshed = await getItinerary(tripId!)
     setItinerary(refreshed)
+    setIsEditDirty(false)
     setEditTarget(null)
   }
 
@@ -76,17 +86,14 @@ export default function TripItineraryPage() {
       <div className="flex items-start justify-between gap-4 mb-2">
         <h2 className="font-display text-xl font-semibold text-ink">行程表</h2>
         {isOwner && (
-          <div className="flex items-center gap-2 shrink-0">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => handleGenerate(true)}
-              disabled={generating || days.length === 0}
-            >
-              {generating ? '產生中…' : '重新產生'}
-            </Button>
-            <Button variant="secondary" size="sm" disabled>分享行程表</Button>
-          </div>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => handleGenerate(true)}
+            disabled={generating || days.length === 0}
+          >
+            {generating ? '產生中…' : '重新產生行程'}
+          </Button>
         )}
       </div>
 
@@ -101,10 +108,12 @@ export default function TripItineraryPage() {
       {isOwner && editTarget && (
         <div className="mb-6">
           <ItineraryItemForm
+            key={editTarget.item.item_id}
             item={editTarget.item}
             dayNumber={editTarget.dayNumber}
             onSave={handleEditItem}
-            onCancel={() => setEditTarget(null)}
+            onCancel={() => { setIsEditDirty(false); setEditTarget(null) }}
+            onDirtyChange={setIsEditDirty}
           />
         </div>
       )}
@@ -150,7 +159,7 @@ export default function TripItineraryPage() {
               day_number={day.day_number}
               date={day.date}
               items={day.items}
-              onEditItem={isOwner ? (item, dayNumber) => setEditTarget({ item, dayNumber }) : undefined}
+              onEditItem={isOwner ? requestEditTarget : undefined}
               onDeleteItem={isOwner ? handleDeleteItem : undefined}
             />
           ))}
