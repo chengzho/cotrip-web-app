@@ -56,11 +56,11 @@ def _candidate_row_minimal():
     )
 
 
-def _enriched_row(vote_count=3, current_user_voted=True):
+def _enriched_row(vote_count=3, current_user_voted=True, category="attraction", meal_times=None):
     return (
         uuid.UUID(CANDIDATE_ID),  # 0 id
         uuid.UUID(TRIP_ID),        # 1 trip_id
-        "attraction",              # 2 category
+        category,                  # 2 category
         "Tokyo Skytree",           # 3 name
         "1-1-2 Oshiage",           # 4 address
         "Nice views",              # 5 note
@@ -71,6 +71,7 @@ def _enriched_row(vote_count=3, current_user_voted=True):
         current_user_voted,        # 10 current_user_voted
         _TS,                       # 11 created_at
         _TS,                       # 12 updated_at
+        meal_times,                # 13 restaurant_meal_times
     )
 
 
@@ -79,7 +80,7 @@ def _enriched_row(vote_count=3, current_user_voted=True):
 # ---------------------------------------------------------------------------
 
 class TestCreateCandidate:
-    def _insert_row(self):
+    def _insert_row(self, meal_times=None):
         return (
             uuid.UUID(CANDIDATE_ID),
             uuid.UUID(TRIP_ID),
@@ -90,6 +91,7 @@ class TestCreateCandidate:
             "https://example.com",
             _TS,
             _TS,
+            meal_times,
         )
 
     def test_success_inserts_candidate(self):
@@ -103,6 +105,7 @@ class TestCreateCandidate:
         assert result["current_user_voted"] is False
         assert result["created_by"]["user_id"] == USER_ID
         assert result["created_by"]["display_name"] == "Sophie"
+        assert result["restaurant_meal_times"] is None
         conn.commit.assert_called_once()
 
     def test_not_a_member_raises_forbidden(self):
@@ -133,6 +136,68 @@ class TestCreateCandidate:
         conn = _conn(_membership_cur("member"), _cursor(fetchone=self._insert_row()))
         result = create_candidate(conn, TRIP_ID, USER_ID, "Sophie", "transport", "Airport Shuttle")
         assert result["candidate_id"] == CANDIDATE_ID
+
+    def test_restaurant_with_meal_times(self):
+        row = self._insert_row(meal_times=["lunch", "dinner"])
+        conn = _conn(_membership_cur("member"), _cursor(fetchone=row))
+        result = create_candidate(
+            conn, TRIP_ID, USER_ID, "Alice", "restaurant", "Ramen Shop",
+            restaurant_meal_times=["lunch", "dinner"],
+        )
+        assert result["restaurant_meal_times"] == ["lunch", "dinner"]
+
+    def test_restaurant_meal_times_any(self):
+        row = self._insert_row(meal_times=["any"])
+        conn = _conn(_membership_cur("member"), _cursor(fetchone=row))
+        result = create_candidate(
+            conn, TRIP_ID, USER_ID, "Alice", "restaurant", "All Day Diner",
+            restaurant_meal_times=["any"],
+        )
+        assert result["restaurant_meal_times"] == ["any"]
+
+    def test_non_restaurant_with_meal_times_raises(self):
+        conn = _conn(_membership_cur("member"))
+        with pytest.raises(ValidationError, match="restaurant candidates"):
+            create_candidate(
+                conn, TRIP_ID, USER_ID, "Alice", "attraction", "Temple",
+                restaurant_meal_times=["lunch"],
+            )
+
+    def test_invalid_meal_time_raises(self):
+        conn = _conn(_membership_cur("member"))
+        with pytest.raises(ValidationError):
+            create_candidate(
+                conn, TRIP_ID, USER_ID, "Alice", "restaurant", "Shop",
+                restaurant_meal_times=["brunch"],
+            )
+
+    def test_any_combined_with_others_raises(self):
+        conn = _conn(_membership_cur("member"))
+        with pytest.raises(ValidationError, match="'any' cannot be combined"):
+            create_candidate(
+                conn, TRIP_ID, USER_ID, "Alice", "restaurant", "Shop",
+                restaurant_meal_times=["any", "lunch"],
+            )
+
+    def test_duplicate_meal_times_normalized(self):
+        row = self._insert_row(meal_times=["lunch"])
+        conn = _conn(_membership_cur("member"), _cursor(fetchone=row))
+        # duplicates are silently deduplicated before hitting the DB
+        result = create_candidate(
+            conn, TRIP_ID, USER_ID, "Alice", "restaurant", "Shop",
+            restaurant_meal_times=["lunch", "lunch"],
+        )
+        # the normalized value passed to DB was ["lunch"]; row returns ["lunch"]
+        assert result["restaurant_meal_times"] == ["lunch"]
+
+    def test_empty_meal_times_treated_as_none(self):
+        row = self._insert_row(meal_times=None)
+        conn = _conn(_membership_cur("member"), _cursor(fetchone=row))
+        result = create_candidate(
+            conn, TRIP_ID, USER_ID, "Alice", "restaurant", "Shop",
+            restaurant_meal_times=[],
+        )
+        assert result["restaurant_meal_times"] is None
 
 
 # ---------------------------------------------------------------------------
@@ -204,17 +269,30 @@ class TestListCandidates:
         assert result[0]["vote_count"] == 0
         assert result[0]["current_user_voted"] is False
 
+    def test_restaurant_meal_times_returned(self):
+        rows = [_enriched_row(category="restaurant", meal_times=["breakfast"])]
+        conn = _conn(_membership_cur("member"), _cursor(fetchall=rows))
+        result = list_candidates(conn, TRIP_ID, USER_ID)
+        assert result[0]["restaurant_meal_times"] == ["breakfast"]
+
+    def test_null_meal_times_returned_as_none(self):
+        rows = [_enriched_row(category="restaurant", meal_times=None)]
+        conn = _conn(_membership_cur("member"), _cursor(fetchall=rows))
+        result = list_candidates(conn, TRIP_ID, USER_ID)
+        assert result[0]["restaurant_meal_times"] is None
+
 
 # ---------------------------------------------------------------------------
 # update_candidate
 # ---------------------------------------------------------------------------
 
 class TestUpdateCandidate:
-    def _minimal_candidate_row(self, created_by=None):
+    def _minimal_candidate_row(self, created_by=None, category="attraction"):
         return (
             uuid.UUID(CANDIDATE_ID),
             uuid.UUID(TRIP_ID),
             uuid.UUID(created_by or USER_ID),
+            category,
         )
 
     def test_creator_can_update(self):
@@ -317,17 +395,92 @@ class TestUpdateCandidate:
         assert "note = %s" in call_args[0]
         assert "New note" in call_args[1]
 
+    def test_update_meal_times_for_restaurant(self):
+        membership_cur = _membership_cur("member")
+        candidate_cur = _cursor(fetchone=self._minimal_candidate_row(category="restaurant"))
+        update_cur = _cursor(fetchone=_enriched_row(category="restaurant", meal_times=["lunch"]))
+        conn = _conn(membership_cur, candidate_cur, update_cur)
+
+        result = update_candidate(
+            conn, TRIP_ID, CANDIDATE_ID, USER_ID,
+            {"restaurant_meal_times": ["lunch"]},
+        )
+        assert result["restaurant_meal_times"] == ["lunch"]
+
+    def test_meal_times_on_non_restaurant_existing_candidate_raises(self):
+        # Patch only restaurant_meal_times, no category in patch.
+        # Existing candidate is attraction — must be rejected at app layer.
+        membership_cur = _membership_cur("member")
+        candidate_cur = _cursor(fetchone=self._minimal_candidate_row(category="attraction"))
+        conn = _conn(membership_cur, candidate_cur)
+
+        with pytest.raises(ValidationError, match="restaurant candidates"):
+            update_candidate(
+                conn, TRIP_ID, CANDIDATE_ID, USER_ID,
+                {"restaurant_meal_times": ["lunch"]},
+            )
+
+    def test_invalid_meal_time_in_update_raises(self):
+        membership_cur = _membership_cur("member")
+        candidate_cur = _cursor(fetchone=self._minimal_candidate_row())
+        conn = _conn(membership_cur, candidate_cur)
+
+        with pytest.raises(ValidationError):
+            update_candidate(
+                conn, TRIP_ID, CANDIDATE_ID, USER_ID,
+                {"restaurant_meal_times": ["brunch"]},
+            )
+
+    def test_any_combined_in_update_raises(self):
+        membership_cur = _membership_cur("member")
+        candidate_cur = _cursor(fetchone=self._minimal_candidate_row())
+        conn = _conn(membership_cur, candidate_cur)
+
+        with pytest.raises(ValidationError, match="'any' cannot be combined"):
+            update_candidate(
+                conn, TRIP_ID, CANDIDATE_ID, USER_ID,
+                {"restaurant_meal_times": ["any", "dinner"]},
+            )
+
+    def test_changing_category_away_from_restaurant_clears_meal_times(self):
+        membership_cur = _membership_cur("member")
+        candidate_cur = _cursor(fetchone=self._minimal_candidate_row())
+        update_cur = _cursor(fetchone=_enriched_row(category="attraction", meal_times=None))
+        conn = _conn(membership_cur, candidate_cur, update_cur)
+
+        update_candidate(
+            conn, TRIP_ID, CANDIDATE_ID, USER_ID,
+            {"category": "attraction"},
+        )
+        # Verify SQL includes restaurant_meal_times = NULL
+        call_args = update_cur.execute.call_args[0]
+        assert "restaurant_meal_times = %s" in call_args[0]
+        # None should appear in the params
+        assert None in call_args[1]
+
+    def test_meal_times_for_non_restaurant_category_in_same_patch_raises(self):
+        membership_cur = _membership_cur("member")
+        candidate_cur = _cursor(fetchone=self._minimal_candidate_row())
+        conn = _conn(membership_cur, candidate_cur)
+
+        with pytest.raises(ValidationError, match="restaurant candidates"):
+            update_candidate(
+                conn, TRIP_ID, CANDIDATE_ID, USER_ID,
+                {"category": "attraction", "restaurant_meal_times": ["lunch"]},
+            )
+
 
 # ---------------------------------------------------------------------------
 # delete_candidate
 # ---------------------------------------------------------------------------
 
 class TestDeleteCandidate:
-    def _minimal_candidate_row(self, created_by=None):
+    def _minimal_candidate_row(self, created_by=None, category="attraction"):
         return (
             uuid.UUID(CANDIDATE_ID),
             uuid.UUID(TRIP_ID),
             uuid.UUID(created_by or USER_ID),
+            category,
         )
 
     def test_creator_can_delete(self):

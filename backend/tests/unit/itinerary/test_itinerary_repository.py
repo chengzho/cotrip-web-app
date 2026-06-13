@@ -61,9 +61,9 @@ def _count_cur(n):
 def _candidate_rows(n_attr=1, n_rest=1):
     rows = []
     for i in range(n_attr):
-        rows.append((uuid.uuid4(), "attraction", f"Attraction {i}", f"Note A{i}"))
+        rows.append((uuid.uuid4(), "attraction", f"Attraction {i}", f"Note A{i}", None))
     for i in range(n_rest):
-        rows.append((uuid.uuid4(), "restaurant", f"Restaurant {i}", f"Note R{i}"))
+        rows.append((uuid.uuid4(), "restaurant", f"Restaurant {i}", f"Note R{i}", None))
     return rows
 
 

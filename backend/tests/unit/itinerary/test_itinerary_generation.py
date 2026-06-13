@@ -12,12 +12,19 @@ def _attr(name="Temple A", note=None):
     return {"id": str(uuid.uuid4()), "category": "attraction", "name": name, "note": note}
 
 
-def _rest(name="Restaurant A", note=None):
-    return {"id": str(uuid.uuid4()), "category": "restaurant", "name": name, "note": note}
+def _rest(name="Restaurant A", note=None, meal_times=None):
+    return {
+        "id": str(uuid.uuid4()),
+        "category": "restaurant",
+        "name": name,
+        "note": note,
+        "restaurant_meal_times": meal_times,
+    }
 
 
 class TestBuildItineraryRows:
-    def test_single_day_all_four_slots(self):
+    def test_single_day_all_four_legacy_slots(self):
+        # Unspecified (legacy) restaurants land in lunch/dinner only
         rows = build_itinerary_rows(TRIP_ID, 1, [_attr("A1"), _attr("A2")], [_rest("R1"), _rest("R2")])
         assert len(rows) == 4
         assert [r["slot"] for r in rows] == ["morning", "lunch", "afternoon", "dinner"]
@@ -94,3 +101,171 @@ class TestBuildItineraryRows:
         afternoon = next(r for r in rows if r["slot"] == "afternoon")
         assert morning["title"] == "First"
         assert afternoon["title"] == "Second"
+
+    # -----------------------------------------------------------------------
+    # Meal-time aware scheduling
+    # -----------------------------------------------------------------------
+
+    def test_unspecified_restaurant_eligible_for_lunch_and_dinner(self):
+        r = _rest("Legacy", meal_times=None)
+        rows = build_itinerary_rows(TRIP_ID, 1, [_attr(), _attr()], [r, r])
+        slots = [row["slot"] for row in rows if row["category"] == "restaurant"]
+        assert "lunch" in slots
+
+    def test_lunch_only_restaurant_placed_in_lunch_slot(self):
+        r = _rest("Lunch Place", meal_times=["lunch"])
+        rows = build_itinerary_rows(TRIP_ID, 1, [_attr(), _attr()], [r])
+        restaurant_rows = [row for row in rows if row["category"] == "restaurant"]
+        assert len(restaurant_rows) == 1
+        assert restaurant_rows[0]["slot"] == "lunch"
+
+    def test_lunch_only_restaurant_not_placed_in_dinner_slot(self):
+        lunch_only = _rest("Lunch Only", meal_times=["lunch"])
+        rows = build_itinerary_rows(TRIP_ID, 1, [_attr(), _attr()], [lunch_only])
+        dinner_rows = [row for row in rows if row["slot"] == "dinner"]
+        assert len(dinner_rows) == 0
+
+    def test_dinner_only_restaurant_placed_in_dinner_slot(self):
+        r = _rest("Dinner Place", meal_times=["dinner"])
+        rows = build_itinerary_rows(TRIP_ID, 1, [_attr(), _attr()], [r])
+        restaurant_rows = [row for row in rows if row["category"] == "restaurant"]
+        assert len(restaurant_rows) == 1
+        assert restaurant_rows[0]["slot"] == "dinner"
+
+    def test_dinner_only_restaurant_not_placed_in_lunch_slot(self):
+        dinner_only = _rest("Dinner Only", meal_times=["dinner"])
+        rows = build_itinerary_rows(TRIP_ID, 1, [_attr(), _attr()], [dinner_only])
+        lunch_rows = [row for row in rows if row["slot"] == "lunch"]
+        assert len(lunch_rows) == 0
+
+    def test_breakfast_only_restaurant_not_placed_in_lunch_or_dinner(self):
+        breakfast_only = _rest("Morning Stall", meal_times=["breakfast"])
+        rows = build_itinerary_rows(TRIP_ID, 1, [_attr(), _attr()], [breakfast_only])
+        meal_slot_rows = [r for r in rows if r["slot"] in ("lunch", "dinner") and r["category"] == "restaurant"]
+        assert len(meal_slot_rows) == 0
+
+    def test_snack_only_restaurant_not_placed_in_lunch_or_dinner(self):
+        snack_only = _rest("Snack Bar", meal_times=["snack"])
+        rows = build_itinerary_rows(TRIP_ID, 1, [_attr(), _attr()], [snack_only])
+        meal_slot_rows = [r for r in rows if r["slot"] in ("lunch", "dinner") and r["category"] == "restaurant"]
+        assert len(meal_slot_rows) == 0
+
+    def test_late_night_only_restaurant_not_placed_in_lunch_or_dinner(self):
+        late = _rest("Night Spot", meal_times=["late_night"])
+        rows = build_itinerary_rows(TRIP_ID, 1, [_attr(), _attr()], [late])
+        meal_slot_rows = [r for r in rows if r["slot"] in ("lunch", "dinner") and r["category"] == "restaurant"]
+        assert len(meal_slot_rows) == 0
+
+    def test_any_restaurant_eligible_for_both_lunch_and_dinner(self):
+        r = _rest("All Day", meal_times=["any"])
+        rows = build_itinerary_rows(TRIP_ID, 1, [_attr(), _attr()], [r, _rest("Other")])
+        slots = [row["slot"] for row in rows if row["category"] == "restaurant"]
+        # r is consumed for lunch first; "Other" (unspecified) goes to dinner
+        assert "lunch" in slots
+        assert "dinner" in slots
+
+    def test_restaurant_not_scheduled_twice_across_slots(self):
+        r = _rest("Versatile", meal_times=["lunch", "dinner"])
+        rows = build_itinerary_rows(TRIP_ID, 1, [_attr(), _attr()], [r])
+        restaurant_rows = [row for row in rows if row["category"] == "restaurant"]
+        # even though it's eligible for both, it should only appear once
+        assert len(restaurant_rows) == 1
+
+    def test_mixed_pool_breakfast_and_dinner_restaurant(self):
+        breakfast = _rest("Breakfast Spot", meal_times=["breakfast"])
+        dinner = _rest("Dinner Place", meal_times=["dinner"])
+        rows = build_itinerary_rows(TRIP_ID, 1, [_attr(), _attr()], [breakfast, dinner])
+        restaurant_rows = {row["slot"]: row["title"] for row in rows if row["category"] == "restaurant"}
+        assert "lunch" not in restaurant_rows
+        assert restaurant_rows.get("dinner") == "Dinner Place"
+
+    def test_lunch_and_dinner_restaurants_fill_correct_slots(self):
+        r_lunch = _rest("Lunch Spot", meal_times=["lunch"])
+        r_dinner = _rest("Dinner Spot", meal_times=["dinner"])
+        rows = build_itinerary_rows(TRIP_ID, 1, [_attr(), _attr()], [r_lunch, r_dinner])
+        slot_titles = {row["slot"]: row["title"] for row in rows if row["category"] == "restaurant"}
+        assert slot_titles.get("lunch") == "Lunch Spot"
+        assert slot_titles.get("dinner") == "Dinner Spot"
+
+    # -----------------------------------------------------------------------
+    # Full slot mapping: morning / afternoon / evening
+    # -----------------------------------------------------------------------
+
+    def test_breakfast_restaurant_placed_in_morning_slot(self):
+        r = _rest("Morning Stall", meal_times=["breakfast"])
+        rows = build_itinerary_rows(TRIP_ID, 1, [_attr(), _attr()], [r])
+        restaurant_rows = [row for row in rows if row["category"] == "restaurant"]
+        assert len(restaurant_rows) == 1
+        assert restaurant_rows[0]["slot"] == "morning"
+
+    def test_snack_restaurant_placed_in_afternoon_slot(self):
+        r = _rest("Snack Bar", meal_times=["snack"])
+        rows = build_itinerary_rows(TRIP_ID, 1, [_attr(), _attr()], [r])
+        restaurant_rows = [row for row in rows if row["category"] == "restaurant"]
+        assert len(restaurant_rows) == 1
+        assert restaurant_rows[0]["slot"] == "afternoon"
+
+    def test_late_night_restaurant_placed_in_evening_slot(self):
+        r = _rest("Night Spot", meal_times=["late_night"])
+        rows = build_itinerary_rows(TRIP_ID, 1, [_attr(), _attr()], [r])
+        restaurant_rows = [row for row in rows if row["category"] == "restaurant"]
+        assert len(restaurant_rows) == 1
+        assert restaurant_rows[0]["slot"] == "evening"
+
+    def test_all_five_meal_slots_filled_in_one_day(self):
+        r_breakfast = _rest("Breakfast", meal_times=["breakfast"])
+        r_lunch = _rest("Lunch", meal_times=["lunch"])
+        r_snack = _rest("Snack", meal_times=["snack"])
+        r_dinner = _rest("Dinner", meal_times=["dinner"])
+        r_late = _rest("Late Night", meal_times=["late_night"])
+        rows = build_itinerary_rows(
+            TRIP_ID, 1,
+            [_attr("A1"), _attr("A2")],
+            [r_breakfast, r_lunch, r_snack, r_dinner, r_late],
+        )
+        slot_titles = {row["slot"]: row["title"] for row in rows if row["category"] == "restaurant"}
+        assert slot_titles.get("morning") == "Breakfast"
+        assert slot_titles.get("lunch") == "Lunch"
+        assert slot_titles.get("afternoon") == "Snack"
+        assert slot_titles.get("dinner") == "Dinner"
+        assert slot_titles.get("evening") == "Late Night"
+
+    def test_unspecified_restaurant_not_placed_in_morning(self):
+        r = _rest("Legacy", meal_times=None)
+        rows = build_itinerary_rows(TRIP_ID, 1, [_attr(), _attr()], [r])
+        morning_restaurant_rows = [
+            row for row in rows if row["slot"] == "morning" and row["category"] == "restaurant"
+        ]
+        assert len(morning_restaurant_rows) == 0
+
+    def test_unspecified_restaurant_not_placed_in_afternoon(self):
+        r = _rest("Legacy", meal_times=None)
+        rows = build_itinerary_rows(TRIP_ID, 1, [_attr(), _attr()], [r])
+        afternoon_restaurant_rows = [
+            row for row in rows if row["slot"] == "afternoon" and row["category"] == "restaurant"
+        ]
+        assert len(afternoon_restaurant_rows) == 0
+
+    def test_unspecified_restaurant_not_placed_in_evening(self):
+        r = _rest("Legacy", meal_times=None)
+        rows = build_itinerary_rows(TRIP_ID, 1, [_attr(), _attr()], [r])
+        evening_rows = [row for row in rows if row["slot"] == "evening"]
+        assert len(evening_rows) == 0
+
+    def test_any_restaurant_not_placed_in_morning_afternoon_evening(self):
+        r = _rest("Any Time", meal_times=["any"])
+        rows = build_itinerary_rows(TRIP_ID, 1, [_attr(), _attr()], [r])
+        slot = next(
+            (row["slot"] for row in rows if row["category"] == "restaurant"), None
+        )
+        assert slot in ("lunch", "dinner")
+
+    def test_morning_slot_has_attraction_before_restaurant(self):
+        r_breakfast = _rest("Breakfast Shop", meal_times=["breakfast"])
+        rows = build_itinerary_rows(TRIP_ID, 1, [_attr("Temple"), _attr()], [r_breakfast])
+        morning_rows = [r for r in rows if r["slot"] == "morning"]
+        assert len(morning_rows) == 2
+        assert morning_rows[0]["title"] == "Temple"
+        assert morning_rows[0]["sort_order"] == 1
+        assert morning_rows[1]["title"] == "Breakfast Shop"
+        assert morning_rows[1]["sort_order"] == 2

@@ -5,7 +5,8 @@ from common.validation import validate_enum
 
 
 VALID_CATEGORIES = frozenset({"attraction", "restaurant", "accommodation", "transport", "other"})
-ALLOWED_UPDATE_FIELDS = frozenset({"category", "name", "address", "note", "source_url"})
+VALID_MEAL_TIMES = frozenset({"breakfast", "lunch", "dinner", "snack", "late_night", "any"})
+ALLOWED_UPDATE_FIELDS = frozenset({"category", "name", "address", "note", "source_url", "restaurant_meal_times"})
 
 
 def _fmt(value):
@@ -17,7 +18,7 @@ def _fmt(value):
 
 
 def _row_to_candidate(row) -> dict:
-    """Map a 13-column enriched SELECT row to the API candidate dict.
+    """Map a 14-column enriched SELECT row to the API candidate dict.
 
     Expected column order:
     0  id
@@ -33,6 +34,7 @@ def _row_to_candidate(row) -> dict:
     10 current_user_voted
     11 created_at
     12 updated_at
+    13 restaurant_meal_times
     """
     return {
         "candidate_id": str(row[0]),
@@ -50,7 +52,40 @@ def _row_to_candidate(row) -> dict:
         "current_user_voted": bool(row[10]) if row[10] is not None else False,
         "created_at": _fmt(row[11]),
         "updated_at": _fmt(row[12]),
+        "restaurant_meal_times": row[13] if row[13] is not None else None,
     }
+
+
+def _normalize_meal_times(value) -> list | None:
+    """Validate and normalize restaurant_meal_times input.
+
+    Returns a deduplicated list, or None if the field should be cleared.
+    Raises ValidationError for invalid inputs.
+    """
+    if value is None:
+        return None
+    if not isinstance(value, list):
+        raise ValidationError("restaurant_meal_times must be an array")
+    # Filter empty strings and deduplicate while preserving order
+    seen = set()
+    cleaned = []
+    for item in value:
+        if not isinstance(item, str):
+            raise ValidationError("restaurant_meal_times values must be strings")
+        item = item.strip()
+        if not item:
+            continue
+        if item not in VALID_MEAL_TIMES:
+            joined = ", ".join(sorted(VALID_MEAL_TIMES))
+            raise ValidationError(f"restaurant_meal_times contains invalid value '{item}'. Allowed: {joined}")
+        if item not in seen:
+            seen.add(item)
+            cleaned.append(item)
+    if not cleaned:
+        return None
+    if "any" in seen and len(cleaned) > 1:
+        raise ValidationError("'any' cannot be combined with other meal time values")
+    return cleaned
 
 
 # ---------------------------------------------------------------------------
@@ -94,6 +129,7 @@ def _get_candidate(conn, trip_id: str, candidate_id: str) -> dict:
         "id": str(row[0]),
         "trip_id": str(row[1]),
         "created_by": str(row[2]),
+        "category": row[3],
     }
 
 
@@ -111,22 +147,29 @@ def create_candidate(
     address=None,
     note=None,
     source_url=None,
+    restaurant_meal_times=None,
 ) -> dict:
     role = _get_trip_membership(conn, trip_id, user_id)
     if role is None:
         raise ForbiddenError("You are not a member of this trip")
+
+    meal_times = _normalize_meal_times(restaurant_meal_times)
+    if meal_times is not None and category != "restaurant":
+        raise ValidationError("restaurant_meal_times can only be set for restaurant candidates")
 
     candidate_id = str(uuid.uuid4())
     with conn.cursor() as cur:
         cur.execute(
             """
             INSERT INTO trip_candidates
-                (id, trip_id, created_by, category, name, address, note, source_url)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                (id, trip_id, created_by, category, name, address, note, source_url,
+                 restaurant_meal_times)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id, trip_id, category, name, address, note, source_url,
-                      created_at, updated_at
+                      created_at, updated_at, restaurant_meal_times
             """,
-            (candidate_id, trip_id, user_id, category, name, address, note, source_url),
+            (candidate_id, trip_id, user_id, category, name, address, note, source_url,
+             meal_times),
         )
         row = cur.fetchone()
     conn.commit()
@@ -147,6 +190,7 @@ def create_candidate(
         "current_user_voted": False,
         "created_at": _fmt(row[7]),
         "updated_at": _fmt(row[8]),
+        "restaurant_meal_times": row[9] if row[9] is not None else None,
     }
 
 
@@ -180,7 +224,8 @@ def list_candidates(conn, trip_id: str, user_id: str, category=None) -> list:
             COUNT(cv.candidate_id)                         AS vote_count,
             COALESCE(BOOL_OR(cv.user_id = %s), FALSE)      AS current_user_voted,
             tc.created_at,
-            tc.updated_at
+            tc.updated_at,
+            tc.restaurant_meal_times
         FROM trip_candidates tc
         JOIN users u ON tc.created_by = u.id
         LEFT JOIN candidate_votes cv ON tc.id = cv.candidate_id
@@ -188,7 +233,7 @@ def list_candidates(conn, trip_id: str, user_id: str, category=None) -> list:
         {category_clause}
         GROUP BY tc.id, tc.trip_id, tc.category, tc.name, tc.address, tc.note,
                  tc.source_url, tc.created_by, u.id, u.display_name,
-                 tc.created_at, tc.updated_at
+                 tc.created_at, tc.updated_at, tc.restaurant_meal_times
         ORDER BY tc.created_at DESC
     """
 
@@ -217,12 +262,26 @@ def update_candidate(conn, trip_id: str, candidate_id: str, user_id: str, patch:
     if not fields:
         raise ValidationError("No valid fields provided for update")
 
-    if "category" in fields:
-        validate_enum(fields["category"], VALID_CATEGORIES, "category")
+    new_category = fields.get("category")
+    if new_category is not None:
+        validate_enum(new_category, VALID_CATEGORIES, "category")
     if "name" in fields:
         if not isinstance(fields["name"], str) or not fields["name"].strip():
             raise ValidationError("name must not be empty")
         fields["name"] = fields["name"].strip()
+
+    # Handle restaurant_meal_times validation
+    if "restaurant_meal_times" in fields:
+        meal_times = _normalize_meal_times(fields["restaurant_meal_times"])
+        # Effective category: use the incoming value if provided, else the existing one.
+        effective_category = new_category if new_category is not None else candidate["category"]
+        if meal_times is not None and effective_category != "restaurant":
+            raise ValidationError("restaurant_meal_times can only be set for restaurant candidates")
+        fields["restaurant_meal_times"] = meal_times
+
+    # If category is changing away from restaurant, clear meal times
+    if new_category is not None and new_category != "restaurant":
+        fields["restaurant_meal_times"] = None
 
     set_clauses = [f"{col} = %s" for col in fields] + ["updated_at = CURRENT_TIMESTAMP"]
     params = list(fields.values()) + [candidate_id, trip_id, user_id]
@@ -233,7 +292,7 @@ def update_candidate(conn, trip_id: str, candidate_id: str, user_id: str, patch:
             SET {", ".join(set_clauses)}
             WHERE id = %s AND trip_id = %s
             RETURNING id, trip_id, category, name, address, note, source_url,
-                      created_by, created_at, updated_at
+                      created_by, created_at, updated_at, restaurant_meal_times
         )
         SELECT
             upd.id,
@@ -248,12 +307,14 @@ def update_candidate(conn, trip_id: str, candidate_id: str, user_id: str, patch:
             COUNT(cv.candidate_id)                         AS vote_count,
             COALESCE(BOOL_OR(cv.user_id = %s), FALSE)      AS current_user_voted,
             upd.created_at,
-            upd.updated_at
+            upd.updated_at,
+            upd.restaurant_meal_times
         FROM updated upd
         JOIN users u ON upd.created_by = u.id
         LEFT JOIN candidate_votes cv ON upd.id = cv.candidate_id
         GROUP BY upd.id, upd.trip_id, upd.category, upd.name, upd.address, upd.note,
-                 upd.source_url, upd.created_by, u.display_name, upd.created_at, upd.updated_at
+                 upd.source_url, upd.created_by, u.display_name, upd.created_at, upd.updated_at,
+                 upd.restaurant_meal_times
     """
 
     with conn.cursor() as cur:

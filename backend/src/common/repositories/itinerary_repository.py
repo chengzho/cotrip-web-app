@@ -15,11 +15,39 @@ VALID_SLOTS = frozenset({"morning", "lunch", "afternoon", "dinner", "evening"})
 ALLOWED_ITEM_UPDATE_FIELDS = frozenset({"day_number", "slot", "title", "note", "sort_order"})
 
 _SLOT_PATTERN = [
-    ("morning", "attraction"),
-    ("lunch", "restaurant"),
+    ("morning",   "attraction"),
+    ("morning",   "restaurant"),   # breakfast-tagged restaurants only
+    ("lunch",     "restaurant"),
     ("afternoon", "attraction"),
-    ("dinner", "restaurant"),
+    ("afternoon", "restaurant"),   # snack-tagged restaurants only
+    ("dinner",    "restaurant"),
+    ("evening",   "restaurant"),   # late_night-tagged restaurants only
 ]
+
+# Map each itinerary slot to the meal-time values that make a restaurant eligible.
+# Unspecified (legacy) restaurants are eligible for lunch and dinner only.
+_SLOT_ELIGIBLE_MEAL_TIMES = {
+    "morning":   frozenset({"breakfast"}),
+    "lunch":     frozenset({"lunch", "any"}),
+    "afternoon": frozenset({"snack"}),
+    "dinner":    frozenset({"dinner", "any"}),
+    "evening":   frozenset({"late_night"}),
+}
+
+# Slots where unspecified (legacy) restaurants are eligible.
+_LEGACY_RESTAURANT_SLOTS = frozenset({"lunch", "dinner"})
+
+
+def _restaurant_eligible_for_slot(restaurant: dict, slot: str) -> bool:
+    """Return True if this restaurant can be scheduled into the given meal slot."""
+    meal_times = restaurant.get("restaurant_meal_times")
+    eligible = _SLOT_ELIGIBLE_MEAL_TIMES.get(slot)
+    if eligible is None:
+        return False
+    if not meal_times:
+        # Unspecified (legacy) → preserve old behavior: lunch and dinner only
+        return slot in _LEGACY_RESTAURANT_SLOTS
+    return bool(set(meal_times) & eligible)
 
 
 # ---------------------------------------------------------------------------
@@ -128,16 +156,31 @@ def _group_items_by_day(trip_id: str, start_date, items: list) -> dict:
 # ---------------------------------------------------------------------------
 
 def build_itinerary_rows(trip_id: str, num_days: int, attractions: list, restaurants: list) -> list:
-    """Build insertion-ready row dicts from ranked candidate lists."""
+    """Build insertion-ready row dicts from ranked candidate lists.
+
+    Restaurants are assigned to meal slots based on their restaurant_meal_times metadata.
+    Unspecified (legacy) restaurants are eligible for both lunch and dinner.
+    A restaurant is never scheduled twice even if eligible for multiple slots.
+    """
     rows = []
     attr_iter = iter(attractions)
-    rest_iter = iter(restaurants)
+    used_restaurant_ids: set = set()
+
+    def _next_restaurant_for_slot(slot: str):
+        for r in restaurants:
+            if r["id"] not in used_restaurant_ids and _restaurant_eligible_for_slot(r, slot):
+                used_restaurant_ids.add(r["id"])
+                return r
+        return None
 
     for day_idx in range(num_days):
         day_number = day_idx + 1
         slot_sort = 1
         for slot, category in _SLOT_PATTERN:
-            candidate = next(attr_iter if category == "attraction" else rest_iter, None)
+            if category == "attraction":
+                candidate = next(attr_iter, None)
+            else:
+                candidate = _next_restaurant_for_slot(slot)
             if candidate is None:
                 continue
             rows.append({
@@ -182,11 +225,11 @@ def generate_itinerary(
     with conn.cursor() as cur:
         cur.execute(
             """
-            SELECT tc.id, tc.category, tc.name, tc.note
+            SELECT tc.id, tc.category, tc.name, tc.note, tc.restaurant_meal_times
             FROM trip_candidates tc
             LEFT JOIN candidate_votes cv ON tc.id = cv.candidate_id
             WHERE tc.trip_id = %s
-            GROUP BY tc.id, tc.category, tc.name, tc.note, tc.created_at
+            GROUP BY tc.id, tc.category, tc.name, tc.note, tc.restaurant_meal_times, tc.created_at
             ORDER BY COUNT(cv.candidate_id) DESC, tc.created_at ASC
             """,
             (trip_id,),
@@ -201,7 +244,13 @@ def generate_itinerary(
         for r in candidate_rows if r[1] == "attraction"
     ]
     restaurants = [
-        {"id": str(r[0]), "category": r[1], "name": r[2], "note": r[3]}
+        {
+            "id": str(r[0]),
+            "category": r[1],
+            "name": r[2],
+            "note": r[3],
+            "restaurant_meal_times": r[4],
+        }
         for r in candidate_rows if r[1] == "restaurant"
     ]
 
