@@ -24,6 +24,7 @@ export interface Candidate {
   created_at: string;
   updated_at: string;
   restaurant_meal_times: RestaurantMealTime[] | null;
+  area_label: string | null;
 }
 
 // Request body for POST /trips/{tripId}/candidates
@@ -34,6 +35,7 @@ export interface CreateCandidateRequest {
   note?: string;
   source_url?: string;
   restaurant_meal_times?: RestaurantMealTime[];
+  area_label?: string | null;
 }
 
 // Request body for PATCH /trips/{tripId}/candidates/{candidateId}
@@ -44,4 +46,5 @@ export interface UpdateCandidateRequest {
   note?: string;
   source_url?: string;
   restaurant_meal_times?: RestaurantMealTime[] | null;
+  area_label?: string | null;
 }

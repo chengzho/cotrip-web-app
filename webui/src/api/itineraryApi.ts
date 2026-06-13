@@ -1,5 +1,12 @@
 import { request } from './httpClient';
-import type { Itinerary, ItineraryItemDetail, GenerateItineraryRequest, UpdateItineraryItemRequest } from '../types/itinerary';
+import type {
+  DayPreference,
+  GenerateItineraryRequest,
+  Itinerary,
+  ItineraryItemDetail,
+  SaveDayPreferencesRequest,
+  UpdateItineraryItemRequest,
+} from '../types/itinerary';
 
 export async function generateItinerary(tripId: string, body?: GenerateItineraryRequest): Promise<Itinerary> {
   const result = await request<{ itinerary: Itinerary }>({
@@ -34,4 +41,24 @@ export async function deleteItineraryItem(tripId: string, itemId: string): Promi
     path: `/trips/${tripId}/itinerary/items/${itemId}`,
   });
   return result.deleted_item_id;
+}
+
+export async function getDayPreferences(tripId: string): Promise<DayPreference[]> {
+  const result = await request<{ preferences: DayPreference[] }>({
+    method: 'GET',
+    path: `/trips/${tripId}/itinerary/preferences`,
+  });
+  return result.preferences;
+}
+
+export async function saveDayPreferences(
+  tripId: string,
+  body: SaveDayPreferencesRequest,
+): Promise<DayPreference[]> {
+  const result = await request<{ preferences: DayPreference[] }>({
+    method: 'PATCH',
+    path: `/trips/${tripId}/itinerary/preferences`,
+    body,
+  });
+  return result.preferences;
 }

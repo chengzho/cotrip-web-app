@@ -6,12 +6,27 @@ import ErrorState from '../../components/common/ErrorState'
 import EmptyState from '../../components/common/EmptyState'
 import ItineraryDaySection from '../../components/itinerary/ItineraryDaySection'
 import ItineraryItemForm from '../../components/itinerary/ItineraryItemForm'
-import { getItinerary, generateItinerary, updateItineraryItem, deleteItineraryItem, ApiError } from '../../api/index'
-import type { Itinerary, UpdateItineraryItemRequest } from '../../types/itinerary'
+import {
+  getItinerary,
+  generateItinerary,
+  updateItineraryItem,
+  deleteItineraryItem,
+  ApiError,
+} from '../../api/index'
+import { getDayPreferences, saveDayPreferences } from '../../api/itineraryApi'
+import type { DayPreference, Itinerary, UpdateItineraryItemRequest } from '../../types/itinerary'
 import type { ItineraryItem } from '../../components/itinerary/ItineraryItemRow'
 import type { WorkspaceOutletContext } from '../../components/layout/TripWorkspaceLayout'
 
 type EditTarget = { item: ItineraryItem; dayNumber: number } | null
+
+function computeNumDays(startDate: string | null | undefined, endDate: string | null | undefined): number | null {
+  if (!startDate || !endDate) return null
+  const start = new Date(startDate)
+  const end = new Date(endDate)
+  const diff = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
+  return diff >= 0 ? diff + 1 : null
+}
 
 export default function TripItineraryPage() {
   const { tripId } = useParams<{ tripId: string }>()
@@ -25,6 +40,14 @@ export default function TripItineraryPage() {
   const [editTarget, setEditTarget] = useState<EditTarget>(null)
   const [isEditDirty, setIsEditDirty] = useState(false)
 
+  // Day preferences state
+  const [prefInputs, setPrefInputs] = useState<Record<number, string>>({})
+  const [prefSaving, setPrefSaving] = useState(false)
+  const [prefError, setPrefError] = useState<string | null>(null)
+  const [prefSaved, setPrefSaved] = useState(false)
+
+  const numDays = computeNumDays(trip?.start_date, trip?.end_date)
+
   useEffect(() => {
     if (!tripId) return
     getItinerary(tripId)
@@ -33,6 +56,21 @@ export default function TripItineraryPage() {
         setError(err instanceof ApiError ? err.message : '無法載入行程表，請稍後再試。')
       })
       .finally(() => setLoading(false))
+  }, [tripId])
+
+  useEffect(() => {
+    if (!tripId) return
+    getDayPreferences(tripId)
+      .then((prefs: DayPreference[]) => {
+        const map: Record<number, string> = {}
+        for (const p of prefs) {
+          map[p.day_number] = p.preferred_area_label ?? ''
+        }
+        setPrefInputs(map)
+      })
+      .catch(() => {
+        // Silently ignore — preferences are optional
+      })
   }, [tripId])
 
   async function handleGenerate(overwrite: boolean) {
@@ -46,6 +84,26 @@ export default function TripItineraryPage() {
       setError(err instanceof ApiError ? err.message : '產生行程表失敗，請稍後再試。')
     } finally {
       setGenerating(false)
+    }
+  }
+
+  async function handleSavePreferences() {
+    if (!tripId || !numDays) return
+    setPrefSaving(true)
+    setPrefError(null)
+    setPrefSaved(false)
+    try {
+      const preferences: DayPreference[] = Array.from({ length: numDays }, (_, i) => ({
+        day_number: i + 1,
+        preferred_area_label: prefInputs[i + 1]?.trim() || null,
+      })).filter((p) => p.preferred_area_label !== null || true)
+      await saveDayPreferences(tripId, { preferences })
+      setPrefSaved(true)
+      setTimeout(() => setPrefSaved(false), 2000)
+    } catch (err) {
+      setPrefError(err instanceof ApiError ? err.message : '儲存失敗，請稍後再試。')
+    } finally {
+      setPrefSaving(false)
     }
   }
 
@@ -102,6 +160,49 @@ export default function TripItineraryPage() {
         <p className="text-sm text-muted mb-6">
           {days.length} 天 · {totalItems} 個地點 · 由群組投票結果產生
         </p>
+      )}
+
+      {/* Day preferences section */}
+      {numDays !== null && numDays > 0 && (
+        <div className="mb-6 rounded-xl border border-line bg-surface p-4">
+          <h3 className="text-sm font-semibold text-ink mb-3">每日偏好地區</h3>
+          <p className="text-xs text-muted mb-3">
+            為每天指定偏好地區，產生行程時優先安排該地區的景點（選填）。
+          </p>
+          <div className="flex flex-col gap-2">
+            {Array.from({ length: numDays }, (_, i) => {
+              const dayNum = i + 1
+              const value = prefInputs[dayNum] ?? ''
+              return (
+                <div key={dayNum} className="flex items-center gap-3">
+                  <span className="text-xs text-muted w-12 shrink-0">第 {dayNum} 天</span>
+                  {isOwner ? (
+                    <input
+                      type="text"
+                      className="flex-1 border border-line rounded-lg px-3 py-1.5 text-xs text-ink bg-surface focus:outline-none focus:ring-1 focus:ring-ink/20 transition-colors"
+                      placeholder="不限地區"
+                      value={value}
+                      onChange={(e) => setPrefInputs((prev) => ({ ...prev, [dayNum]: e.target.value }))}
+                    />
+                  ) : (
+                    <span className="flex-1 text-xs text-ink">
+                      {value || <span className="text-muted">未設定</span>}
+                    </span>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+          {isOwner && (
+            <div className="mt-3 flex items-center gap-3">
+              <Button size="sm" variant="secondary" onClick={handleSavePreferences} disabled={prefSaving}>
+                {prefSaving ? '儲存中…' : '儲存偏好'}
+              </Button>
+              {prefSaved && <span className="text-xs text-green-600">已儲存</span>}
+              {prefError && <span className="text-xs text-red-600">{prefError}</span>}
+            </div>
+          )}
+        </div>
       )}
 
       {/* Edit form — owner only */}

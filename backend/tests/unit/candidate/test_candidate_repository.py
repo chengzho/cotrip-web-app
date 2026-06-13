@@ -56,7 +56,10 @@ def _candidate_row_minimal():
     )
 
 
-def _enriched_row(vote_count=3, current_user_voted=True, category="attraction", meal_times=None):
+def _enriched_row(
+    vote_count=3, current_user_voted=True, category="attraction",
+    meal_times=None, area_label=None,
+):
     return (
         uuid.UUID(CANDIDATE_ID),  # 0 id
         uuid.UUID(TRIP_ID),        # 1 trip_id
@@ -72,6 +75,7 @@ def _enriched_row(vote_count=3, current_user_voted=True, category="attraction", 
         _TS,                       # 11 created_at
         _TS,                       # 12 updated_at
         meal_times,                # 13 restaurant_meal_times
+        area_label,                # 14 area_label
     )
 
 
@@ -80,18 +84,19 @@ def _enriched_row(vote_count=3, current_user_voted=True, category="attraction", 
 # ---------------------------------------------------------------------------
 
 class TestCreateCandidate:
-    def _insert_row(self, meal_times=None):
+    def _insert_row(self, meal_times=None, area_label=None):
         return (
-            uuid.UUID(CANDIDATE_ID),
-            uuid.UUID(TRIP_ID),
-            "attraction",
-            "Tokyo Skytree",
-            "1-1-2 Oshiage",
-            "Nice views",
-            "https://example.com",
-            _TS,
-            _TS,
-            meal_times,
+            uuid.UUID(CANDIDATE_ID),   # 0 id
+            uuid.UUID(TRIP_ID),        # 1 trip_id
+            "attraction",              # 2 category
+            "Tokyo Skytree",           # 3 name
+            "1-1-2 Oshiage",           # 4 address
+            "Nice views",              # 5 note
+            "https://example.com",     # 6 source_url
+            _TS,                       # 7 created_at
+            _TS,                       # 8 updated_at
+            meal_times,                # 9 restaurant_meal_times
+            area_label,                # 10 area_label
         )
 
     def test_success_inserts_candidate(self):
@@ -199,6 +204,21 @@ class TestCreateCandidate:
         )
         assert result["restaurant_meal_times"] is None
 
+    def test_area_label_stored_and_returned(self):
+        row = self._insert_row(area_label="Kyoto Station")
+        conn = _conn(_membership_cur("member"), _cursor(fetchone=row))
+        result = create_candidate(
+            conn, TRIP_ID, USER_ID, "Alice", "attraction", "Fushimi Inari",
+            area_label="Kyoto Station",
+        )
+        assert result["area_label"] == "Kyoto Station"
+
+    def test_area_label_none_when_not_provided(self):
+        row = self._insert_row(area_label=None)
+        conn = _conn(_membership_cur("member"), _cursor(fetchone=row))
+        result = create_candidate(conn, TRIP_ID, USER_ID, "Alice", "attraction", "Temple")
+        assert result["area_label"] is None
+
 
 # ---------------------------------------------------------------------------
 # list_candidates
@@ -280,6 +300,18 @@ class TestListCandidates:
         conn = _conn(_membership_cur("member"), _cursor(fetchall=rows))
         result = list_candidates(conn, TRIP_ID, USER_ID)
         assert result[0]["restaurant_meal_times"] is None
+
+    def test_area_label_returned_in_list(self):
+        rows = [_enriched_row(area_label="Shinjuku")]
+        conn = _conn(_membership_cur("member"), _cursor(fetchall=rows))
+        result = list_candidates(conn, TRIP_ID, USER_ID)
+        assert result[0]["area_label"] == "Shinjuku"
+
+    def test_null_area_label_returned_as_none(self):
+        rows = [_enriched_row(area_label=None)]
+        conn = _conn(_membership_cur("member"), _cursor(fetchall=rows))
+        result = list_candidates(conn, TRIP_ID, USER_ID)
+        assert result[0]["area_label"] is None
 
 
 # ---------------------------------------------------------------------------
@@ -468,6 +500,41 @@ class TestUpdateCandidate:
                 conn, TRIP_ID, CANDIDATE_ID, USER_ID,
                 {"category": "attraction", "restaurant_meal_times": ["lunch"]},
             )
+
+    def test_update_area_label(self):
+        membership_cur = _membership_cur("member")
+        candidate_cur = _cursor(fetchone=self._minimal_candidate_row())
+        update_cur = _cursor(fetchone=_enriched_row(area_label="Osaka Castle"))
+        conn = _conn(membership_cur, candidate_cur, update_cur)
+
+        result = update_candidate(
+            conn, TRIP_ID, CANDIDATE_ID, USER_ID, {"area_label": "Osaka Castle"}
+        )
+        assert result["area_label"] == "Osaka Castle"
+
+    def test_area_label_whitespace_normalized(self):
+        membership_cur = _membership_cur("member")
+        candidate_cur = _cursor(fetchone=self._minimal_candidate_row())
+        update_cur = _cursor(fetchone=_enriched_row(area_label="Osaka Castle"))
+        conn = _conn(membership_cur, candidate_cur, update_cur)
+
+        update_candidate(
+            conn, TRIP_ID, CANDIDATE_ID, USER_ID, {"area_label": "  Osaka Castle  "}
+        )
+        call_args = update_cur.execute.call_args[0]
+        assert "Osaka Castle" in call_args[1]
+
+    def test_area_label_empty_string_becomes_null(self):
+        membership_cur = _membership_cur("member")
+        candidate_cur = _cursor(fetchone=self._minimal_candidate_row())
+        update_cur = _cursor(fetchone=_enriched_row(area_label=None))
+        conn = _conn(membership_cur, candidate_cur, update_cur)
+
+        update_candidate(
+            conn, TRIP_ID, CANDIDATE_ID, USER_ID, {"area_label": "  "}
+        )
+        call_args = update_cur.execute.call_args[0]
+        assert None in call_args[1]
 
 
 # ---------------------------------------------------------------------------

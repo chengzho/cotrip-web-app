@@ -4,8 +4,10 @@ from common.errors import AppError, InternalServerError, NotFoundError, Validati
 from common.repositories.itinerary_repository import (
     delete_itinerary_item,
     generate_itinerary,
+    get_day_preferences,
     get_itinerary,
     update_itinerary_item,
+    upsert_day_preferences,
 )
 from common.repositories.user_repository import resolve_or_create_user
 from common.request import parse_http_event
@@ -43,6 +45,10 @@ def _dispatch(req, conn, user):
         return _update_item(req, conn, user_id)
     if rk == "DELETE /trips/{tripId}/itinerary/items/{itemId}":
         return _delete_item(req, conn, user_id)
+    if rk == "GET /trips/{tripId}/itinerary/preferences":
+        return _get_preferences(req, conn, user_id)
+    if rk == "PATCH /trips/{tripId}/itinerary/preferences":
+        return _save_preferences(req, conn, user_id)
 
     raise NotFoundError(f"Route not found: {rk}")
 
@@ -89,3 +95,24 @@ def _delete_item(req, conn, user_id):
 
     deleted_id = delete_itinerary_item(conn, trip_id, item_id, user_id)
     return {"deleted_item_id": deleted_id}, 200
+
+
+def _get_preferences(req, conn, user_id):
+    trip_id = req.path_parameters.get("tripId", "")
+    validate_uuid_string(trip_id, "tripId")
+
+    preferences = get_day_preferences(conn, trip_id, user_id)
+    return {"preferences": preferences}, 200
+
+
+def _save_preferences(req, conn, user_id):
+    trip_id = req.path_parameters.get("tripId", "")
+    validate_uuid_string(trip_id, "tripId")
+
+    body = req.body or {}
+    preferences = body.get("preferences")
+    if preferences is None:
+        raise ValidationError("preferences field is required")
+
+    saved = upsert_day_preferences(conn, trip_id, user_id, preferences)
+    return {"preferences": saved}, 200

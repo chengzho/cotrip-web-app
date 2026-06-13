@@ -155,18 +155,57 @@ def _group_items_by_day(trip_id: str, start_date, items: list) -> dict:
 # Pure generation helper (no DB calls — fully unit-testable)
 # ---------------------------------------------------------------------------
 
-def build_itinerary_rows(trip_id: str, num_days: int, attractions: list, restaurants: list) -> list:
+def build_itinerary_rows(
+    trip_id: str,
+    num_days: int,
+    attractions: list,
+    restaurants: list,
+    day_preferences: dict | None = None,
+) -> list:
     """Build insertion-ready row dicts from ranked candidate lists.
 
     Restaurants are assigned to meal slots based on their restaurant_meal_times metadata.
+    Meal-time eligibility is a hard constraint and is never overridden.
     Unspecified (legacy) restaurants are eligible for both lunch and dinner.
     A restaurant is never scheduled twice even if eligible for multiple slots.
+
+    day_preferences: optional dict {day_number (int) -> preferred_area_label (str|None)}.
+    Area preference is soft and applies to both attractions and restaurants.
+    For restaurants, area preference is evaluated only among meal-time-eligible candidates.
     """
     rows = []
-    attr_iter = iter(attractions)
+    used_attr_ids: set = set()
     used_restaurant_ids: set = set()
+    day_preferences = day_preferences or {}
 
-    def _next_restaurant_for_slot(slot: str):
+    def _next_attraction_for_day(day_number: int):
+        preferred_area = day_preferences.get(day_number)
+        # First pass: prefer attractions matching the day's preferred area
+        if preferred_area:
+            for a in attractions:
+                if a["id"] not in used_attr_ids and a.get("area_label") == preferred_area:
+                    used_attr_ids.add(a["id"])
+                    return a
+        # Second pass: any remaining attraction
+        for a in attractions:
+            if a["id"] not in used_attr_ids:
+                used_attr_ids.add(a["id"])
+                return a
+        return None
+
+    def _next_restaurant_for_slot(slot: str, day_number: int):
+        preferred_area = day_preferences.get(day_number)
+        # First pass: eligible restaurants matching the day's preferred area
+        if preferred_area:
+            for r in restaurants:
+                if (
+                    r["id"] not in used_restaurant_ids
+                    and _restaurant_eligible_for_slot(r, slot)
+                    and r.get("area_label") == preferred_area
+                ):
+                    used_restaurant_ids.add(r["id"])
+                    return r
+        # Second pass: any eligible restaurant
         for r in restaurants:
             if r["id"] not in used_restaurant_ids and _restaurant_eligible_for_slot(r, slot):
                 used_restaurant_ids.add(r["id"])
@@ -178,9 +217,9 @@ def build_itinerary_rows(trip_id: str, num_days: int, attractions: list, restaur
         slot_sort = 1
         for slot, category in _SLOT_PATTERN:
             if category == "attraction":
-                candidate = next(attr_iter, None)
+                candidate = _next_attraction_for_day(day_number)
             else:
-                candidate = _next_restaurant_for_slot(slot)
+                candidate = _next_restaurant_for_slot(slot, day_number)
             if candidate is None:
                 continue
             rows.append({
@@ -197,6 +236,76 @@ def build_itinerary_rows(trip_id: str, num_days: int, attractions: list, restaur
             slot_sort += 1
 
     return rows
+
+
+# ---------------------------------------------------------------------------
+# Day preferences (area preference — soft constraint)
+# ---------------------------------------------------------------------------
+
+def get_day_preferences(conn, trip_id: str, user_id: str) -> list:
+    role = _get_trip_membership(conn, trip_id, user_id)
+    if role is None:
+        raise ForbiddenError("You are not a member of this trip")
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT day_number, preferred_area_label
+            FROM trip_day_preferences
+            WHERE trip_id = %s
+            ORDER BY day_number
+            """,
+            (trip_id,),
+        )
+        rows = cur.fetchall()
+
+    return [{"day_number": r[0], "preferred_area_label": r[1]} for r in rows]
+
+
+def upsert_day_preferences(conn, trip_id: str, user_id: str, preferences: list) -> list:
+    role = _get_trip_membership(conn, trip_id, user_id)
+    if role is None:
+        raise ForbiddenError("You are not a member of this trip")
+    if role != "owner":
+        raise ForbiddenError("Only trip owners can update day preferences")
+
+    if not isinstance(preferences, list):
+        raise ValidationError("preferences must be an array")
+
+    seen_days: set = set()
+    cleaned = []
+    for entry in preferences:
+        if not isinstance(entry, dict):
+            raise ValidationError("Each preference entry must be an object")
+        day_number = entry.get("day_number")
+        preferred_area = entry.get("preferred_area_label")
+        if not isinstance(day_number, int) or day_number < 1:
+            raise ValidationError("day_number must be a positive integer")
+        if day_number in seen_days:
+            raise ValidationError(f"Duplicate day_number: {day_number}")
+        seen_days.add(day_number)
+        if preferred_area is None:
+            normalized_area = None
+        elif isinstance(preferred_area, str):
+            normalized_area = preferred_area.strip() or None
+        else:
+            raise ValidationError("preferred_area_label must be a string or null")
+        cleaned.append((day_number, normalized_area))
+
+    with conn.cursor() as cur:
+        cur.execute("DELETE FROM trip_day_preferences WHERE trip_id = %s", (trip_id,))
+        for day_number, preferred_area in cleaned:
+            cur.execute(
+                """
+                INSERT INTO trip_day_preferences (trip_id, day_number, preferred_area_label)
+                VALUES (%s, %s, %s)
+                """,
+                (trip_id, day_number, preferred_area),
+            )
+
+    conn.commit()
+
+    return [{"day_number": d, "preferred_area_label": a} for d, a in sorted(cleaned)]
 
 
 # ---------------------------------------------------------------------------
@@ -225,11 +334,12 @@ def generate_itinerary(
     with conn.cursor() as cur:
         cur.execute(
             """
-            SELECT tc.id, tc.category, tc.name, tc.note, tc.restaurant_meal_times
+            SELECT tc.id, tc.category, tc.name, tc.note, tc.restaurant_meal_times, tc.area_label
             FROM trip_candidates tc
             LEFT JOIN candidate_votes cv ON tc.id = cv.candidate_id
             WHERE tc.trip_id = %s
-            GROUP BY tc.id, tc.category, tc.name, tc.note, tc.restaurant_meal_times, tc.created_at
+            GROUP BY tc.id, tc.category, tc.name, tc.note, tc.restaurant_meal_times,
+                     tc.area_label, tc.created_at
             ORDER BY COUNT(cv.candidate_id) DESC, tc.created_at ASC
             """,
             (trip_id,),
@@ -240,7 +350,13 @@ def generate_itinerary(
         raise ConflictError("No candidate places are available for itinerary generation.")
 
     attractions = [
-        {"id": str(r[0]), "category": r[1], "name": r[2], "note": r[3]}
+        {
+            "id": str(r[0]),
+            "category": r[1],
+            "name": r[2],
+            "note": r[3],
+            "area_label": r[5],
+        }
         for r in candidate_rows if r[1] == "attraction"
     ]
     restaurants = [
@@ -250,9 +366,23 @@ def generate_itinerary(
             "name": r[2],
             "note": r[3],
             "restaurant_meal_times": r[4],
+            "area_label": r[5],
         }
         for r in candidate_rows if r[1] == "restaurant"
     ]
+
+    # Load day preferences (soft area preference)
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT day_number, preferred_area_label
+            FROM trip_day_preferences
+            WHERE trip_id = %s
+            """,
+            (trip_id,),
+        )
+        pref_rows = cur.fetchall()
+    day_preferences = {r[0]: r[1] for r in pref_rows}
 
     if isinstance(start_date, str):
         start_date = date.fromisoformat(start_date)
@@ -260,7 +390,9 @@ def generate_itinerary(
         end_date = date.fromisoformat(end_date)
 
     num_days = (end_date - start_date).days + 1
-    rows = build_itinerary_rows(trip_id, num_days, attractions, restaurants)
+    rows = build_itinerary_rows(
+        trip_id, num_days, attractions, restaurants, day_preferences=day_preferences
+    )
 
     if overwrite_existing and existing_count > 0:
         with conn.cursor() as cur:

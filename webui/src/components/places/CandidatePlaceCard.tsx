@@ -11,6 +11,7 @@ export interface CandidatePlaceCardProps {
   vote_count: number;
   current_user_voted: boolean;
   restaurant_meal_times?: RestaurantMealTime[] | null;
+  area_label?: string | null;
   onEdit?: () => void;
   onDelete?: () => void;
   onVote?: () => void;
@@ -25,6 +26,7 @@ export default function CandidatePlaceCard({
   vote_count,
   current_user_voted,
   restaurant_meal_times,
+  area_label,
   onEdit,
   onDelete,
   onVote,
@@ -60,11 +62,12 @@ export default function CandidatePlaceCard({
         </button>
       </div>
 
-      {/* Row 2: category · meal times · proposer + vote count + actions */}
+      {/* Row 2: category · meal times · area · proposer + vote count + actions */}
       <div className="flex items-center justify-between mt-2.5">
         <p className="text-xs text-muted">
           {CATEGORY_LABEL[category] ?? category}
           {mealTimeText && <span className="text-muted/70"> · {mealTimeText}</span>}
+          {area_label && <span className="text-muted/70"> · {area_label}</span>}
           {' · '}由 {created_by.display_name} 提案
         </p>
         <div className="flex items-center gap-2">

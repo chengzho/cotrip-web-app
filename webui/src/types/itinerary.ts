@@ -46,3 +46,14 @@ export interface UpdateItineraryItemRequest {
   note?: string | null;
   sort_order?: number;
 }
+
+// One entry in the day preferences list
+export interface DayPreference {
+  day_number: number;
+  preferred_area_label: string | null;
+}
+
+// Request body for PUT /trips/{tripId}/itinerary/preferences
+export interface SaveDayPreferencesRequest {
+  preferences: DayPreference[];
+}

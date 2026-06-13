@@ -14,8 +14,10 @@ from common.errors import (
 from common.repositories.itinerary_repository import (
     delete_itinerary_item,
     generate_itinerary,
+    get_day_preferences,
     get_itinerary,
     update_itinerary_item,
+    upsert_day_preferences,
 )
 
 
@@ -61,10 +63,15 @@ def _count_cur(n):
 def _candidate_rows(n_attr=1, n_rest=1):
     rows = []
     for i in range(n_attr):
-        rows.append((uuid.uuid4(), "attraction", f"Attraction {i}", f"Note A{i}", None))
+        rows.append((uuid.uuid4(), "attraction", f"Attraction {i}", f"Note A{i}", None, None))
     for i in range(n_rest):
-        rows.append((uuid.uuid4(), "restaurant", f"Restaurant {i}", f"Note R{i}", None))
+        rows.append((uuid.uuid4(), "restaurant", f"Restaurant {i}", f"Note R{i}", None, None))
     return rows
+
+
+def _pref_cur():
+    """Mock cursor returning empty day preferences."""
+    return _cursor(fetchall=[])
 
 
 def _item_row():
@@ -91,6 +98,7 @@ class TestGenerateItinerary:
             _trip_cur("owner"),
             _count_cur(0),
             _cursor(fetchall=_candidate_rows()),
+            _pref_cur(),
             _cursor(),  # INSERT
         )
         result = generate_itinerary(conn, TRIP_ID, USER_ID)
@@ -104,6 +112,7 @@ class TestGenerateItinerary:
             _trip_cur("owner"),
             _count_cur(0),
             _cursor(fetchall=_candidate_rows(4, 4)),
+            _pref_cur(),
             _cursor(),
         )
         result = generate_itinerary(conn, TRIP_ID, USER_ID)
@@ -115,6 +124,7 @@ class TestGenerateItinerary:
             _trip_cur("owner"),
             _count_cur(0),
             _cursor(fetchall=_candidate_rows(1, 0)),
+            _pref_cur(),
             _cursor(),
         )
         result = generate_itinerary(conn, TRIP_ID, USER_ID)
@@ -124,7 +134,8 @@ class TestGenerateItinerary:
         conn = _conn(
             _trip_cur("owner"),
             _count_cur(0),
-            _cursor(fetchall=[(uuid.uuid4(), "attraction", "Temple", "note")]),
+            _cursor(fetchall=[(uuid.uuid4(), "attraction", "Temple", "note", None, None)]),
+            _pref_cur(),
             _cursor(),
         )
         result = generate_itinerary(conn, TRIP_ID, USER_ID)
@@ -146,6 +157,7 @@ class TestGenerateItinerary:
             _trip_cur("owner"),
             _count_cur(2),
             _cursor(fetchall=_candidate_rows()),
+            _pref_cur(),
             delete_cur,
             _cursor(),  # INSERT
         )
@@ -161,6 +173,7 @@ class TestGenerateItinerary:
             _trip_cur("owner"),
             _count_cur(0),
             _cursor(fetchall=_candidate_rows()),
+            _pref_cur(),
             _cursor(),  # INSERT only — no DELETE cursor
         )
         result = generate_itinerary(conn, TRIP_ID, USER_ID, overwrite_existing=True)
@@ -446,3 +459,156 @@ class TestDeleteItineraryItem:
         assert "DELETE FROM itinerary_items" in call_args[0]
         assert ITEM_ID in call_args[1]
         assert TRIP_ID in call_args[1]
+
+
+# ---------------------------------------------------------------------------
+# upsert_day_preferences
+# ---------------------------------------------------------------------------
+
+def _membership_cur(role="member"):
+    return _cursor(fetchone=(role,))
+
+
+class TestUpsertDayPreferences:
+    def _upsert(self, prefs, role="owner"):
+        # DELETE and INSERT share the same cursor (one `with conn.cursor()` block)
+        write_cur = _cursor()
+        conn = _conn(_membership_cur(role), write_cur)
+        result = upsert_day_preferences(conn, TRIP_ID, USER_ID, prefs)
+        return result, write_cur, conn
+
+    def test_valid_preferences_saved_and_returned(self):
+        result, _, conn = self._upsert([
+            {"day_number": 1, "preferred_area_label": "Kyoto"},
+            {"day_number": 2, "preferred_area_label": "Osaka"},
+        ])
+        assert result == [
+            {"day_number": 1, "preferred_area_label": "Kyoto"},
+            {"day_number": 2, "preferred_area_label": "Osaka"},
+        ]
+        conn.commit.assert_called_once()
+
+    def test_null_area_clears_preference(self):
+        result, _, _ = self._upsert([
+            {"day_number": 1, "preferred_area_label": None},
+        ])
+        assert result[0]["preferred_area_label"] is None
+
+    def test_empty_string_clears_preference(self):
+        result, _, _ = self._upsert([
+            {"day_number": 1, "preferred_area_label": ""},
+        ])
+        assert result[0]["preferred_area_label"] is None
+
+    def test_whitespace_only_string_clears_preference(self):
+        result, _, _ = self._upsert([
+            {"day_number": 1, "preferred_area_label": "   "},
+        ])
+        assert result[0]["preferred_area_label"] is None
+
+    def test_trimmed_string_stored_trimmed(self):
+        result, _, _ = self._upsert([
+            {"day_number": 1, "preferred_area_label": "  台中  "},
+        ])
+        assert result[0]["preferred_area_label"] == "台中"
+
+    def test_non_string_non_null_area_label_raises(self):
+        conn = _conn(_membership_cur("owner"))
+        with pytest.raises(ValidationError, match="must be a string or null"):
+            upsert_day_preferences(conn, TRIP_ID, USER_ID, [
+                {"day_number": 1, "preferred_area_label": 123},
+            ])
+
+    def test_integer_area_label_raises(self):
+        conn = _conn(_membership_cur("owner"))
+        with pytest.raises(ValidationError):
+            upsert_day_preferences(conn, TRIP_ID, USER_ID, [
+                {"day_number": 1, "preferred_area_label": True},
+            ])
+
+    def test_non_owner_raises_forbidden(self):
+        conn = _conn(_membership_cur("member"))
+        with pytest.raises(ForbiddenError):
+            upsert_day_preferences(conn, TRIP_ID, USER_ID, [])
+
+    def test_non_member_raises_forbidden(self):
+        conn = _conn(_membership_cur(None))
+        with pytest.raises(ForbiddenError):
+            upsert_day_preferences(conn, TRIP_ID, USER_ID, [])
+
+    def test_day_number_zero_raises(self):
+        conn = _conn(_membership_cur("owner"))
+        with pytest.raises(ValidationError):
+            upsert_day_preferences(conn, TRIP_ID, USER_ID, [
+                {"day_number": 0, "preferred_area_label": "Kyoto"},
+            ])
+
+    def test_duplicate_day_number_raises(self):
+        conn = _conn(_membership_cur("owner"))
+        with pytest.raises(ValidationError, match="Duplicate day_number"):
+            upsert_day_preferences(conn, TRIP_ID, USER_ID, [
+                {"day_number": 1, "preferred_area_label": "Kyoto"},
+                {"day_number": 1, "preferred_area_label": "Osaka"},
+            ])
+
+    def test_non_list_preferences_raises(self):
+        conn = _conn(_membership_cur("owner"))
+        with pytest.raises(ValidationError, match="must be an array"):
+            upsert_day_preferences(conn, TRIP_ID, USER_ID, {"day_number": 1})
+
+    def test_delete_issued_before_insert(self):
+        # DELETE and INSERT share one cursor — call_args_list[0] is DELETE
+        write_cur = _cursor()
+        conn = _conn(_membership_cur("owner"), write_cur)
+        upsert_day_preferences(conn, TRIP_ID, USER_ID, [
+            {"day_number": 1, "preferred_area_label": "Tokyo"},
+        ])
+        first_call_sql = write_cur.execute.call_args_list[0][0][0]
+        assert "DELETE FROM trip_day_preferences" in first_call_sql
+        first_call_params = write_cur.execute.call_args_list[0][0][1]
+        assert TRIP_ID in first_call_params
+
+    def test_empty_preferences_list_clears_all(self):
+        write_cur = _cursor()
+        conn = _conn(_membership_cur("owner"), write_cur)
+        result = upsert_day_preferences(conn, TRIP_ID, USER_ID, [])
+        assert result == []
+        conn.commit.assert_called_once()
+
+    def test_result_sorted_by_day_number(self):
+        result, _, _ = self._upsert([
+            {"day_number": 3, "preferred_area_label": "C"},
+            {"day_number": 1, "preferred_area_label": "A"},
+            {"day_number": 2, "preferred_area_label": "B"},
+        ])
+        assert [r["day_number"] for r in result] == [1, 2, 3]
+
+
+# ---------------------------------------------------------------------------
+# get_day_preferences
+# ---------------------------------------------------------------------------
+
+class TestGetDayPreferences:
+    def test_returns_preferences_list(self):
+        rows = [(1, "Kyoto"), (2, None)]
+        conn = _conn(_membership_cur("member"), _cursor(fetchall=rows))
+        result = get_day_preferences(conn, TRIP_ID, USER_ID)
+        assert result == [
+            {"day_number": 1, "preferred_area_label": "Kyoto"},
+            {"day_number": 2, "preferred_area_label": None},
+        ]
+
+    def test_empty_returns_empty_list(self):
+        conn = _conn(_membership_cur("member"), _cursor(fetchall=[]))
+        result = get_day_preferences(conn, TRIP_ID, USER_ID)
+        assert result == []
+
+    def test_non_member_raises_forbidden(self):
+        conn = _conn(_membership_cur(None))
+        with pytest.raises(ForbiddenError):
+            get_day_preferences(conn, TRIP_ID, USER_ID)
+
+    def test_trip_not_found_raises(self):
+        conn = _conn(_cursor(fetchone=None))
+        with pytest.raises(NotFoundError):
+            get_day_preferences(conn, TRIP_ID, USER_ID)

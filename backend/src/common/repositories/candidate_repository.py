@@ -6,7 +6,10 @@ from common.validation import validate_enum
 
 VALID_CATEGORIES = frozenset({"attraction", "restaurant", "accommodation", "transport", "other"})
 VALID_MEAL_TIMES = frozenset({"breakfast", "lunch", "dinner", "snack", "late_night", "any"})
-ALLOWED_UPDATE_FIELDS = frozenset({"category", "name", "address", "note", "source_url", "restaurant_meal_times"})
+ALLOWED_UPDATE_FIELDS = frozenset({
+    "category", "name", "address", "note", "source_url",
+    "restaurant_meal_times", "area_label",
+})
 
 
 def _fmt(value):
@@ -17,8 +20,18 @@ def _fmt(value):
     return value
 
 
+def _normalize_text(value) -> str | None:
+    """Strip whitespace; return None for empty or null."""
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        return None
+    stripped = value.strip()
+    return stripped if stripped else None
+
+
 def _row_to_candidate(row) -> dict:
-    """Map a 14-column enriched SELECT row to the API candidate dict.
+    """Map a 15-column enriched SELECT row to the API candidate dict.
 
     Expected column order:
     0  id
@@ -35,6 +48,7 @@ def _row_to_candidate(row) -> dict:
     11 created_at
     12 updated_at
     13 restaurant_meal_times
+    14 area_label
     """
     return {
         "candidate_id": str(row[0]),
@@ -53,20 +67,16 @@ def _row_to_candidate(row) -> dict:
         "created_at": _fmt(row[11]),
         "updated_at": _fmt(row[12]),
         "restaurant_meal_times": row[13] if row[13] is not None else None,
+        "area_label": row[14],
     }
 
 
 def _normalize_meal_times(value) -> list | None:
-    """Validate and normalize restaurant_meal_times input.
-
-    Returns a deduplicated list, or None if the field should be cleared.
-    Raises ValidationError for invalid inputs.
-    """
+    """Validate and normalize restaurant_meal_times input."""
     if value is None:
         return None
     if not isinstance(value, list):
         raise ValidationError("restaurant_meal_times must be an array")
-    # Filter empty strings and deduplicate while preserving order
     seen = set()
     cleaned = []
     for item in value:
@@ -148,6 +158,7 @@ def create_candidate(
     note=None,
     source_url=None,
     restaurant_meal_times=None,
+    area_label=None,
 ) -> dict:
     role = _get_trip_membership(conn, trip_id, user_id)
     if role is None:
@@ -157,19 +168,21 @@ def create_candidate(
     if meal_times is not None and category != "restaurant":
         raise ValidationError("restaurant_meal_times can only be set for restaurant candidates")
 
+    normalized_area = _normalize_text(area_label)
+
     candidate_id = str(uuid.uuid4())
     with conn.cursor() as cur:
         cur.execute(
             """
             INSERT INTO trip_candidates
                 (id, trip_id, created_by, category, name, address, note, source_url,
-                 restaurant_meal_times)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                 restaurant_meal_times, area_label)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id, trip_id, category, name, address, note, source_url,
-                      created_at, updated_at, restaurant_meal_times
+                      created_at, updated_at, restaurant_meal_times, area_label
             """,
             (candidate_id, trip_id, user_id, category, name, address, note, source_url,
-             meal_times),
+             meal_times, normalized_area),
         )
         row = cur.fetchone()
     conn.commit()
@@ -191,6 +204,7 @@ def create_candidate(
         "created_at": _fmt(row[7]),
         "updated_at": _fmt(row[8]),
         "restaurant_meal_times": row[9] if row[9] is not None else None,
+        "area_label": row[10],
     }
 
 
@@ -225,7 +239,8 @@ def list_candidates(conn, trip_id: str, user_id: str, category=None) -> list:
             COALESCE(BOOL_OR(cv.user_id = %s), FALSE)      AS current_user_voted,
             tc.created_at,
             tc.updated_at,
-            tc.restaurant_meal_times
+            tc.restaurant_meal_times,
+            tc.area_label
         FROM trip_candidates tc
         JOIN users u ON tc.created_by = u.id
         LEFT JOIN candidate_votes cv ON tc.id = cv.candidate_id
@@ -233,7 +248,7 @@ def list_candidates(conn, trip_id: str, user_id: str, category=None) -> list:
         {category_clause}
         GROUP BY tc.id, tc.trip_id, tc.category, tc.name, tc.address, tc.note,
                  tc.source_url, tc.created_by, u.id, u.display_name,
-                 tc.created_at, tc.updated_at, tc.restaurant_meal_times
+                 tc.created_at, tc.updated_at, tc.restaurant_meal_times, tc.area_label
         ORDER BY tc.created_at DESC
     """
 
@@ -270,10 +285,13 @@ def update_candidate(conn, trip_id: str, candidate_id: str, user_id: str, patch:
             raise ValidationError("name must not be empty")
         fields["name"] = fields["name"].strip()
 
+    # Normalize area_label
+    if "area_label" in fields:
+        fields["area_label"] = _normalize_text(fields["area_label"])
+
     # Handle restaurant_meal_times validation
     if "restaurant_meal_times" in fields:
         meal_times = _normalize_meal_times(fields["restaurant_meal_times"])
-        # Effective category: use the incoming value if provided, else the existing one.
         effective_category = new_category if new_category is not None else candidate["category"]
         if meal_times is not None and effective_category != "restaurant":
             raise ValidationError("restaurant_meal_times can only be set for restaurant candidates")
@@ -292,7 +310,7 @@ def update_candidate(conn, trip_id: str, candidate_id: str, user_id: str, patch:
             SET {", ".join(set_clauses)}
             WHERE id = %s AND trip_id = %s
             RETURNING id, trip_id, category, name, address, note, source_url,
-                      created_by, created_at, updated_at, restaurant_meal_times
+                      created_by, created_at, updated_at, restaurant_meal_times, area_label
         )
         SELECT
             upd.id,
@@ -308,13 +326,14 @@ def update_candidate(conn, trip_id: str, candidate_id: str, user_id: str, patch:
             COALESCE(BOOL_OR(cv.user_id = %s), FALSE)      AS current_user_voted,
             upd.created_at,
             upd.updated_at,
-            upd.restaurant_meal_times
+            upd.restaurant_meal_times,
+            upd.area_label
         FROM updated upd
         JOIN users u ON upd.created_by = u.id
         LEFT JOIN candidate_votes cv ON upd.id = cv.candidate_id
         GROUP BY upd.id, upd.trip_id, upd.category, upd.name, upd.address, upd.note,
                  upd.source_url, upd.created_by, u.display_name, upd.created_at, upd.updated_at,
-                 upd.restaurant_meal_times
+                 upd.restaurant_meal_times, upd.area_label
     """
 
     with conn.cursor() as cur:

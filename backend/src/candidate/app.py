@@ -59,6 +59,7 @@ def _create_candidate(req, conn, user):
     note = body.get("note")
     source_url = body.get("source_url")
     restaurant_meal_times = body.get("restaurant_meal_times")
+    area_label = body.get("area_label")
 
     validate_enum(category, VALID_CATEGORIES, "category")
     require_non_empty_string(name, "name")
@@ -77,6 +78,7 @@ def _create_candidate(req, conn, user):
         note=note,
         source_url=source_url,
         restaurant_meal_times=restaurant_meal_times,
+        area_label=area_label,
     )
     return {"candidate": candidate}, 201
 

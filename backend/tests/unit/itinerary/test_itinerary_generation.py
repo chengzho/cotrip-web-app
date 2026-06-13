@@ -12,13 +12,14 @@ def _attr(name="Temple A", note=None):
     return {"id": str(uuid.uuid4()), "category": "attraction", "name": name, "note": note}
 
 
-def _rest(name="Restaurant A", note=None, meal_times=None):
+def _rest(name="Restaurant A", note=None, meal_times=None, area_label=None):
     return {
         "id": str(uuid.uuid4()),
         "category": "restaurant",
         "name": name,
         "note": note,
         "restaurant_meal_times": meal_times,
+        "area_label": area_label,
     }
 
 
@@ -269,3 +270,86 @@ class TestBuildItineraryRows:
         assert morning_rows[0]["sort_order"] == 1
         assert morning_rows[1]["title"] == "Breakfast Shop"
         assert morning_rows[1]["sort_order"] == 2
+
+    # -----------------------------------------------------------------------
+    # Restaurant area preference (soft, subject to meal-time hard constraint)
+    # -----------------------------------------------------------------------
+
+    def test_preferred_area_restaurant_chosen_over_non_matching(self):
+        # Two dinner-eligible restaurants; day 1 prefers 台中 → 台中 restaurant picked first
+        r_taichung = _rest("台中餐廳", meal_times=["dinner"], area_label="台中")
+        r_other = _rest("其他餐廳", meal_times=["dinner"], area_label="台北")
+        rows = build_itinerary_rows(
+            TRIP_ID, 1,
+            [_attr(), _attr()],
+            [r_other, r_taichung],   # r_other listed first to confirm ordering
+            day_preferences={1: "台中"},
+        )
+        dinner_rows = [r for r in rows if r["slot"] == "dinner"]
+        assert len(dinner_rows) == 1
+        assert dinner_rows[0]["title"] == "台中餐廳"
+
+    def test_fallback_to_any_eligible_when_no_preferred_area_match(self):
+        # Day 1 prefers 台中 but only a 台北 dinner restaurant exists → falls back
+        r_taipei = _rest("台北餐廳", meal_times=["dinner"], area_label="台北")
+        rows = build_itinerary_rows(
+            TRIP_ID, 1,
+            [_attr(), _attr()],
+            [r_taipei],
+            day_preferences={1: "台中"},
+        )
+        dinner_rows = [r for r in rows if r["slot"] == "dinner"]
+        assert len(dinner_rows) == 1
+        assert dinner_rows[0]["title"] == "台北餐廳"
+
+    def test_area_preference_does_not_override_meal_time_hard_constraint_lunch(self):
+        # Day 1 prefers 台中; 台中 restaurant is dinner-only → must NOT go into lunch
+        r_taichung_dinner = _rest("台中晚餐", meal_times=["dinner"], area_label="台中")
+        rows = build_itinerary_rows(
+            TRIP_ID, 1,
+            [_attr(), _attr()],
+            [r_taichung_dinner],
+            day_preferences={1: "台中"},
+        )
+        lunch_rows = [r for r in rows if r["slot"] == "lunch"]
+        assert len(lunch_rows) == 0
+
+    def test_area_preference_does_not_override_meal_time_hard_constraint_dinner(self):
+        # Day 1 prefers 台中; 台中 restaurant is breakfast-only → must NOT go into dinner
+        r_taichung_breakfast = _rest("台中早餐", meal_times=["breakfast"], area_label="台中")
+        rows = build_itinerary_rows(
+            TRIP_ID, 1,
+            [_attr(), _attr()],
+            [r_taichung_breakfast],
+            day_preferences={1: "台中"},
+        )
+        dinner_rows = [r for r in rows if r["slot"] == "dinner"]
+        assert len(dinner_rows) == 0
+
+    def test_area_preference_for_restaurant_applies_per_day(self):
+        # Day 1 prefers 台中, Day 2 prefers 台北 → each day gets its preferred restaurant
+        r_taichung = _rest("台中餐廳", meal_times=["lunch"], area_label="台中")
+        r_taipei = _rest("台北餐廳", meal_times=["lunch"], area_label="台北")
+        rows = build_itinerary_rows(
+            TRIP_ID, 2,
+            [_attr(), _attr(), _attr(), _attr()],
+            [r_taipei, r_taichung],  # r_taipei listed first
+            day_preferences={1: "台中", 2: "台北"},
+        )
+        day1_lunch = next((r for r in rows if r["day_number"] == 1 and r["slot"] == "lunch"), None)
+        day2_lunch = next((r for r in rows if r["day_number"] == 2 and r["slot"] == "lunch"), None)
+        assert day1_lunch is not None and day1_lunch["title"] == "台中餐廳"
+        assert day2_lunch is not None and day2_lunch["title"] == "台北餐廳"
+
+    def test_restaurant_without_area_label_used_as_fallback(self):
+        # Day 1 prefers 台中; only unspecified-area restaurant available → fallback picks it
+        r_no_area = _rest("無地區餐廳", meal_times=["dinner"], area_label=None)
+        rows = build_itinerary_rows(
+            TRIP_ID, 1,
+            [_attr(), _attr()],
+            [r_no_area],
+            day_preferences={1: "台中"},
+        )
+        dinner_rows = [r for r in rows if r["slot"] == "dinner"]
+        assert len(dinner_rows) == 1
+        assert dinner_rows[0]["title"] == "無地區餐廳"

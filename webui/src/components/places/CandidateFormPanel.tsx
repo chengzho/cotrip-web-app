@@ -34,6 +34,7 @@ export default function CandidateFormPanel({ initial, onSave, onCancel }: Candid
   const [mealTimes, setMealTimes] = useState<RestaurantMealTime[]>(
     initial?.restaurant_meal_times ?? []
   )
+  const [areaLabel, setAreaLabel] = useState(initial?.area_label ?? '')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -75,6 +76,7 @@ export default function CandidateFormPanel({ initial, onSave, onCancel }: Candid
         ...(note.trim() && { note: note.trim() }),
         ...(sourceUrl.trim() && { source_url: sourceUrl.trim() }),
         ...(category === 'restaurant' && { restaurant_meal_times: mealTimes }),
+        area_label: areaLabel.trim() || null,
       })
     } catch (err) {
       setError(err instanceof Error ? err.message : '儲存失敗，請稍後再試。')
@@ -126,6 +128,17 @@ export default function CandidateFormPanel({ initial, onSave, onCancel }: Candid
             </div>
           </div>
         )}
+
+        <div>
+          <label className={labelClass}>地區</label>
+          <input
+            type="text"
+            className={inputClass}
+            value={areaLabel}
+            onChange={(e) => setAreaLabel(e.target.value)}
+            placeholder="選填，例：京都市區、大阪心齋橋"
+          />
+        </div>
 
         <div>
           <label className={labelClass}>名稱 <span className="text-red-500">*</span></label>
